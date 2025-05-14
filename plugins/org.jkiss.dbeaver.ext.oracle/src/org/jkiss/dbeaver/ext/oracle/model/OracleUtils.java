@@ -630,17 +630,19 @@ public class OracleUtils {
      * @return the index in text where needle begins, or -1 if it is not found.
      */
     public static int findTokenOutsideComments(
-        String text,
-        String needle,
+        @NotNull String text,
+        @NotNull String needle,
         int fromIndex,
-        String[] singleLineComments,
-        Pair<String, String> multiLineComments
+        @NotNull String[] singleLineComments,
+        @NotNull Pair<String, String> multiLineComments
     ) {
         String mlStart = multiLineComments.getFirst();
         String mlEnd   = multiLineComments.getSecond();
-        int n = text.length(), m = needle.length();
+        int n = text.length();
+        int m = needle.length();
 
-        boolean inML = false, inSL = false;
+        boolean inML = false;
+        boolean inSL = false;
         for (int i = Math.max(fromIndex, 0); i <= n - 1; i++) {
             // multiline comment start
             if (!inML && !inSL && mlStart != null
@@ -685,14 +687,20 @@ public class OracleUtils {
     /**
      * Extracts the first PL/SQL block (BEGIN…END;) from rawAction
      */
+    @NotNull
     public static String quotePlSqlBlock(
-        String rawAction,
-        DBSObject object
+        @NotNull String rawAction,
+        @NotNull DBSObject object
     ) {
+        String endToken = "END;";
         String[] singleLineComments = object.getDataSource()
             .getSQLDialect().getSingleLineComments();
         Pair<String, String> multiLineComments = object.getDataSource()
             .getSQLDialect().getMultiLineComments();
+
+        if (singleLineComments == null || multiLineComments == null) {
+            return SQLUtils.quoteString(object, rawAction);
+        }
 
         int beginPos = findTokenOutsideComments(
             rawAction, "BEGIN", 0,
@@ -703,14 +711,14 @@ public class OracleUtils {
         }
 
         int endPos0 = findTokenOutsideComments(
-            rawAction, "END;", beginPos,
+            rawAction, endToken, beginPos,
             singleLineComments, multiLineComments
         );
         if (endPos0 < 0) {
             return SQLUtils.quoteString(object, rawAction);
         }
 
-        int endPos = endPos0 + "END;".length();
+        int endPos = endPos0 + endToken.length();
         String block = rawAction.substring(beginPos, endPos);
         String quotedBlock = SQLUtils.quoteString(object, block);
 
