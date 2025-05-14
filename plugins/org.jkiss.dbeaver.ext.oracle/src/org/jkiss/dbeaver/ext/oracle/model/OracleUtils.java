@@ -683,7 +683,7 @@ public class OracleUtils {
     }
 
     /**
-     * Extracts the first PL/SQL block (BEGIN…END;) from rawAction,
+     * Extracts the first PL/SQL block (BEGIN…END;) from rawAction
      */
     public static String quotePlSqlBlock(
         String rawAction,
