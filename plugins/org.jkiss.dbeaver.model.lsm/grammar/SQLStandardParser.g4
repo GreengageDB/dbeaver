@@ -100,6 +100,7 @@ intervalLiteral: INTERVAL sign? valueExpressionPrimary intervalQualifier;
 characterSetSpecification: qualifiedName;
 characterSetName: qualifiedName;
 schemaName: qualifiedName;
+schemaNameList: schemaName (COMMA schemaName)*;
 
 qualifiedName: identifier (Period identifier)* Period??;
 identifier: (Introducer characterSetSpecification)? actualIdentifier;
@@ -342,7 +343,7 @@ orderingSpecification: (ASC|DESC);
 
 // schema definition
 sqlSchemaStatement: schemaDefinition|
-    createTableStatement|createViewStatement|alterTableStatement|
+    createTableStatement|createViewStatement|alterDefaultPrivilegesStatement|alterTableStatement|
     dropSchemaStatement|dropTableStatement|dropViewStatement|dropProcedureStatement|dropCharacterSetStatement;
 schemaDefinition: CREATE SCHEMA (IF NOT EXISTS)? schemaNameClause schemaCharacterSetSpecification? schemaElement*;
 schemaNameClause: schemaName|AUTHORIZATION schemaAuthorizationIdentifier|schemaName AUTHORIZATION schemaAuthorizationIdentifier;
@@ -395,6 +396,30 @@ dropViewStatement: DROP VIEW ifExistsSpec?  (tableName (Comma tableName)*)? drop
 dropProcedureStatement: DROP PROCEDURE ifExistsSpec? qualifiedName dropBehaviour?;
 dropCharacterSetStatement: DROP CHARACTER SET characterSetName;
 ifExistsSpec: IF EXISTS ;
+
+// privileges
+alterDefaultPrivilegesStatement: ALTER DEFAULT PRIVILEGES (FOR (ROLE | USER) roleNameList)? (IN SCHEMA schemaNameList)? abbreviatedGrantOrRevoke;
+abbreviatedGrantOrRevoke: grantOnTables|grantOnSequences|grantOnFunctions|grantOnTypes|grantOnSchemas|revokeOnTables|revokeOnSequences|revokeOnFunctions|revokeOnTypes|revokeOnSchemas;
+
+grantOnTables: GRANT (tablePrivilegesList | ALL (PRIVILEGES)?) ON TABLES TO granteeList (WITH GRANT OPTION)?;
+grantOnSequences: GRANT (sequencePrivilegesList | ALL (PRIVILEGES)?) ON SEQUENCES TO granteeList (WITH GRANT OPTION)?;
+grantOnFunctions: GRANT (EXECUTE | ALL (PRIVILEGES)?) ON (FUNCTIONS | ROUTINES) TO granteeList (WITH GRANT OPTION)?;
+grantOnTypes: GRANT (USAGE | ALL (PRIVILEGES)?) ON TYPES TO granteeList (WITH GRANT OPTION)?;
+grantOnSchemas: GRANT (schemaPrivilegesList | ALL (PRIVILEGES)?) ON SCHEMAS TO granteeList (WITH GRANT OPTION)?;
+revokeOnTables: REVOKE (GRANT OPTION FOR)? (tablePrivilegesList | ALL (PRIVILEGES)?) ON TABLES FROM granteeList (CASCADE | RESTRICT)?;
+revokeOnSequences: REVOKE (GRANT OPTION FOR)?? (sequencePrivilegesList | ALL (PRIVILEGES)?) ON SEQUENCES FROM granteeList (CASCADE | RESTRICT)?;
+revokeOnFunctions: REVOKE (GRANT OPTION FOR)?? (EXECUTE | ALL (PRIVILEGES)?) ON (FUNCTIONS | ROUTINES) FROM granteeList (CASCADE | RESTRICT)?;
+revokeOnTypes: REVOKE (GRANT OPTION FOR)?? (USAGE | ALL (PRIVILEGES)?) ON TYPES FROM granteeList (CASCADE | RESTRICT)?;
+revokeOnSchemas: REVOKE (GRANT OPTION FOR)?? (schemaPrivilegesList | ALL (PRIVILEGES)?) ON SCHEMAS FROM granteeList (CASCADE | RESTRICT)?;
+
+roleName: qualifiedName;
+roleNameList: roleName (COMMA roleName)*;
+grantee: (GROUP)? roleName | PUBLIC;
+granteeList: grantee (COMMA grantee)*;
+tablePrivileges: SELECT | INSERT | UPDATE | DELETE | TRUNCATE | REFERENCES | TRIGGER | MAINTAIN;
+tablePrivilegesList: tablePrivileges (COMMA tablePrivileges)*;
+schemaPrivilegesList: (USAGE | CREATE) (COMMA (USAGE | CREATE))*;
+sequencePrivilegesList: (USAGE | SELECT | UPDATE) (COMMA (USAGE | SELECT | UPDATE))*;
 
 // data statements
 selectStatementSingleRow: SELECT (setQuantifier)? selectList INTO selectTargetList tableExpression;
