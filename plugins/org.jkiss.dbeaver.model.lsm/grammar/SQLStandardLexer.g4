@@ -419,6 +419,7 @@ USAGE: U S A G E ;
 TRUNCATE: T R U N C A T E ;
 TRIGGER: T R I G G E R ;
 MAINTAIN: M A I N T A I N ;
+PUBLIC: P U B L I C ;
 
 // symbols
 At: '@';
