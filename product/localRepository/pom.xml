@@ -137,8 +137,6 @@
                     <stopPort/>
                 </configuration>
             </plugin>
-
-
 		</plugins>
 	</build>
 </project>
