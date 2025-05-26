@@ -404,7 +404,21 @@ WORK: W O R K ;
 WRITE: W R I T E ;
 YEAR: Y E A R ;
 ZONE: Z O N E ;
-
+PRIVILEGES: P R I V I L E G E S ;
+GRANT: G R A N T ;
+REVOKE: R E V O K E ;
+FOR: F O R ;
+ROLE: R O L E ;
+TABLES: T A B L E S ;
+SEQUENCES: S E Q U E N C E S ;
+SCHEMAS: S C H E M A S;
+FUNCTIONS: F U N C T I O N S ;
+ROUTINES: R O U T I N E S ;
+TYPES: T Y P E S ;
+USAGE: U S A G E ;
+TRUNCATE: T R U N C A T E ;
+TRIGGER: T R I G G E R ;
+MAINTAIN: M A I N T A I N ;
 
 // symbols
 At: '@';

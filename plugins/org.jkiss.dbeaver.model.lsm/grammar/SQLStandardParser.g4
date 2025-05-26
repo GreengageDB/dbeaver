@@ -100,7 +100,7 @@ intervalLiteral: INTERVAL sign? valueExpressionPrimary intervalQualifier;
 characterSetSpecification: qualifiedName;
 characterSetName: qualifiedName;
 schemaName: qualifiedName;
-schemaNameList: schemaName (COMMA schemaName)*;
+schemaNameList: schemaName (Comma schemaName)*;
 
 qualifiedName: identifier (Period identifier)* Period??;
 identifier: (Introducer characterSetSpecification)? actualIdentifier;
@@ -413,13 +413,13 @@ revokeOnTypes: REVOKE (GRANT OPTION FOR)?? (USAGE | ALL (PRIVILEGES)?) ON TYPES 
 revokeOnSchemas: REVOKE (GRANT OPTION FOR)?? (schemaPrivilegesList | ALL (PRIVILEGES)?) ON SCHEMAS FROM granteeList (CASCADE | RESTRICT)?;
 
 roleName: qualifiedName;
-roleNameList: roleName (COMMA roleName)*;
+roleNameList: roleName (Comma roleName)*;
 grantee: (GROUP)? roleName | PUBLIC;
-granteeList: grantee (COMMA grantee)*;
+granteeList: grantee (Comma grantee)*;
 tablePrivileges: SELECT | INSERT | UPDATE | DELETE | TRUNCATE | REFERENCES | TRIGGER | MAINTAIN;
-tablePrivilegesList: tablePrivileges (COMMA tablePrivileges)*;
-schemaPrivilegesList: (USAGE | CREATE) (COMMA (USAGE | CREATE))*;
-sequencePrivilegesList: (USAGE | SELECT | UPDATE) (COMMA (USAGE | SELECT | UPDATE))*;
+tablePrivilegesList: tablePrivileges (Comma tablePrivileges)*;
+schemaPrivilegesList: (USAGE | CREATE) (Comma (USAGE | CREATE))*;
+sequencePrivilegesList: (USAGE | SELECT | UPDATE) (Comma (USAGE | SELECT | UPDATE))*;
 
 // data statements
 selectStatementSingleRow: SELECT (setQuantifier)? selectList INTO selectTargetList tableExpression;
