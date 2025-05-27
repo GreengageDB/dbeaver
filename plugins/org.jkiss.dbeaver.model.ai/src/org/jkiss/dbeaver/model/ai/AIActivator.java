@@ -17,7 +17,6 @@
 package org.jkiss.dbeaver.model.ai;
 
 import org.eclipse.core.runtime.Plugin;
-import org.jkiss.dbeaver.model.ai.internal.AIBaseFeatures;
 import org.jkiss.dbeaver.model.impl.preferences.BundlePreferenceStore;
 import org.jkiss.dbeaver.model.runtime.features.DBRFeatureRegistry;
 import org.osgi.framework.BundleContext;

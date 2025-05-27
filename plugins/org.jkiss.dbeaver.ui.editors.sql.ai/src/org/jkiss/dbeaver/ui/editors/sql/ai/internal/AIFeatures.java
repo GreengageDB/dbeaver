@@ -16,6 +16,7 @@
  */
 package org.jkiss.dbeaver.ui.editors.sql.ai.internal;
 
+import org.jkiss.dbeaver.model.ai.AIBaseFeatures;
 import org.jkiss.dbeaver.model.runtime.features.DBRFeature;
 
 /**
@@ -23,8 +24,6 @@ import org.jkiss.dbeaver.model.runtime.features.DBRFeature;
  */
 public interface AIFeatures {
 
-    DBRFeature CATEGORY_SQL_AI = DBRFeature.createCategory("SQL AI", "SQL AI features");
-
-    DBRFeature SQL_AI_POPUP = DBRFeature.createFeature(CATEGORY_SQL_AI, "Show AI popup");
-    DBRFeature SQL_AI_GENERATE_PROPOSALS = DBRFeature.createFeature(CATEGORY_SQL_AI, "Generate AI proposal");
+    DBRFeature SQL_AI_POPUP = DBRFeature.createFeature(AIBaseFeatures.CATEGORY_SQL_AI, "Show AI popup");
+    DBRFeature SQL_AI_GENERATE_PROPOSALS = DBRFeature.createFeature(AIBaseFeatures.CATEGORY_SQL_AI, "Generate AI proposal");
 }
