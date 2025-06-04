@@ -320,6 +320,7 @@ public class DriverUtils {
             }
         }
         return null;
+    }
 
     /**
      * Builds string of drivers with single connection option
