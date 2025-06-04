@@ -47,6 +47,7 @@ import org.jkiss.dbeaver.model.stm.STMTreeTermErrorNode;
 import org.jkiss.dbeaver.model.stm.STMTreeTermNode;
 import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.dbeaver.model.struct.rdb.*;
+import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.Pair;
 
 import java.util.*;
@@ -243,11 +244,15 @@ public abstract class SQLQueryCompletionContext {
             private final Set<DBSObjectContainer> exposedContexts = SQLQueryCompletionContext.obtainExposedContexts(dbcExecutionContext);
             private final Map<String, Boolean> columnNameConflicts = (
                 // use data context from symbols origin if presented (correctly derived from tail lexical scope when provided by the model)
+                // first try handle it from the new resolution logic, then try from the old one,
                 // otherwise, try context provided by the deepest model node (legacy and may be incorrect sometimes)
-                context.symbolsOrigin() instanceof SQLQuerySymbolOrigin.DataContextSymbolOrigin o && !o.isChained()
-                    ? o.getDataContext()
+                context.symbolsOrigin() instanceof SQLQuerySymbolOrigin.RowsDataRef rd && !rd.isChained()
+                ? rd.getRowsDataContext().getColumnsList() : (
+                    context.symbolsOrigin() instanceof SQLQuerySymbolOrigin.DataContextSymbolOrigin o && !o.isChained()
+                    ? CommonUtils.notNull(o.getDataContext(), scriptItem.item.getQueryModel().getGivenDataContext())
                     : context.deepestContext()
-            ).getColumnsList().stream()
+                ).getColumnsList()
+            ).stream()
                 .collect(Collectors.groupingBy(c -> c.symbol.getName())).entrySet().stream()
                 .collect(Collectors.toMap(kv -> kv.getKey(), kv -> kv.getValue().size() > 1));
 
@@ -323,7 +328,7 @@ public abstract class SQLQueryCompletionContext {
                     this.prepareNonPrefixedColumnCompletions(monitor, request, context.deepestContext(), null, completionSets);
                 }
                 if (syntaxInspectionResult.expectingTableReference() && nameNodes.length == 0) {
-                    this.prepareTableCompletions(monitor, request, context.deepestContext(), null, completionSets);
+                    this.prepareTableCompletions(monitor, request, context.deepestContext().getKnownSources(), null, completionSets);
                 }
             }
 
@@ -387,7 +392,7 @@ public abstract class SQLQueryCompletionContext {
                 if (dbcExecutionContext == null || dbcExecutionContext.getDataSource() == null || !DBStructUtils.isConnectedContainer(dbcExecutionContext.getDataSource())) {
                     // do nothing
                 } else if (prefix.isEmpty()) {
-                    this.prepareTableCompletions(monitor, request, context, tail, results);
+                    this.prepareTableCompletions(monitor, request, context.getKnownSources(), tail, results);
                 } else {
                     List<String> contextName = prefix.stream().map(e -> e.string).collect(Collectors.toList());
                     DBSObject prefixObject = SQLSearchUtils.findObjectByFQN(
@@ -404,7 +409,7 @@ public abstract class SQLQueryCompletionContext {
                         List<SQLQueryCompletionItem> items = this.accomplishTableReferences(
                             monitor,
                             request,
-                            context,
+                            context.getKnownSources(),
                             prefixObject,
                             prefixInfo,
                             tail
@@ -419,7 +424,7 @@ public abstract class SQLQueryCompletionContext {
             private List<SQLQueryCompletionItem> accomplishTableReferences(
                 @NotNull DBRProgressMonitor monitor,
                 @NotNull SQLCompletionRequest request,
-                @NotNull SQLQueryDataContext context,
+                @NotNull  SQLQuerySourcesInfoCollection knownSources,
                 @NotNull DBSObject prefixContext,
                 @Nullable SQLQueryCompletionItem.ContextObjectInfo prefixInfo,
                 @Nullable SQLQueryWordEntry filterOrNull
@@ -438,7 +443,7 @@ public abstract class SQLQueryCompletionContext {
                     try {
                         this.collectImmediateChildren(
                             monitor,
-                            context,
+                            knownSources,
                             List.of(container),
                             o -> expectedTypes.stream().anyMatch(c -> c.isAssignableFrom(o.getClass())),
                             prefixInfo,
@@ -454,7 +459,7 @@ public abstract class SQLQueryCompletionContext {
 
             private void collectImmediateChildren(
                 @NotNull DBRProgressMonitor monitor,
-                @NotNull SQLQueryDataContext context,
+                @NotNull  SQLQuerySourcesInfoCollection knownSources,
                 @NotNull Collection<DBSObjectContainer> containers,
                 @Nullable Predicate<DBSObject> filter,
                 @Nullable SQLQueryCompletionItem.ContextObjectInfo contextObjext,
@@ -470,7 +475,7 @@ public abstract class SQLQueryCompletionContext {
                             if (score > 0) {
                                 if (child instanceof DBSEntity o && (child instanceof DBSTable || child instanceof DBSView)) {
                                     accumulator.addLast(SQLQueryCompletionItem.forRealTable(score, childName, contextObjext, o,
-                                        context.getKnownSources().getReferencedTables().contains(o)
+                                        knownSources.getReferencedTables().contains(o)
                                     ));
                                 } else {
                                     accumulator.addLast(this.makeDbObjectCompletionItem(score, childName, contextObjext, child));
@@ -772,7 +777,7 @@ public abstract class SQLQueryCompletionContext {
                                 accomplishTableReferences(
                                     monitor,
                                     request,
-                                    context.deepestContext(),
+                                    context.deepestContext().getKnownSources(),
                                     origin.getObject(),
                                     prefix,
                                     filterOrNull
@@ -783,7 +788,7 @@ public abstract class SQLQueryCompletionContext {
                             prepareObjectCompletions(
                                 monitor,
                                 request,
-                                context.deepestContext(),
+                                context.deepestContext().getKnownSources(),
                                 List.of(container),
                                 prefix,
                                 origin.getMemberTypes(),
@@ -796,14 +801,14 @@ public abstract class SQLQueryCompletionContext {
                     @Override
                     public void visitDbObjectFromContext(SQLQuerySymbolOrigin.DbObjectFromContext origin) {
                         if (origin.isIncludingRowsets()) {
-                            prepareTableCompletions(monitor, request, origin.getDataContext(), filterOrNull, results);
+                            prepareTableCompletions(monitor, request, origin.getDataContext().getKnownSources(), filterOrNull, results);
                         } else {
                             Collection<DBSObjectContainer> container = obtainDefaultContext(monitor, request);
                             if (container != null) {
                                 prepareObjectCompletions(
                                     monitor,
                                     request,
-                                    origin.getDataContext(),
+                                    origin.getDataContext().getKnownSources(),
                                     container,
                                     null,
                                     origin.getObjectTypes(),
@@ -817,7 +822,7 @@ public abstract class SQLQueryCompletionContext {
 
                     @Override
                     public void visitRowsetRefFromContext(SQLQuerySymbolOrigin.RowsetRefFromContext origin) {
-                        prepareTableCompletions(monitor, request, origin.getDataContext(), filterOrNull, results);
+                        prepareTableCompletions(monitor, request, origin.getDataContext().getKnownSources(), filterOrNull, results);
                     }
 
                     @Override
@@ -828,12 +833,22 @@ public abstract class SQLQueryCompletionContext {
                     @Override
                     public void visitColumnRefFromReferencedContext(SQLQuerySymbolOrigin.ColumnRefFromReferencedContext origin) {
                         SQLQueryDataContext referencedContext = origin.getRowsSource().source.getResultDataContext();
-                        makeFilteredCompletionSet(filterOrNull, prepareTupleColumns(referencedContext, filterOrNull, false), results);
+                        makeFilteredCompletionSet(filterOrNull, prepareTupleColumns(
+                            referencedContext.getKnownSources(),
+                            referencedContext.getColumnsList(),
+                            filterOrNull,
+                            false
+                        ), results);
                     }
 
                     @Override
                     public void visitColumnNameFromContext(SQLQuerySymbolOrigin.ColumnNameFromContext origin) {
-                        makeFilteredCompletionSet(filterOrNull, prepareTupleColumns(origin.getDataContext(), filterOrNull, false), results);
+                        makeFilteredCompletionSet(filterOrNull, prepareTupleColumns(
+                            origin.getDataContext().getKnownSources(),
+                            origin.getDataContext().getColumnsList(),
+                            filterOrNull,
+                            false
+                        ), results);
                     }
 
                     @Override
@@ -859,17 +874,19 @@ public abstract class SQLQueryCompletionContext {
                                 placeholderInterval.a,
                                 placeholder.getTextContent()
                             );
-                            String columnPrefix = placeholderEntry.string.endsWith("*")
-                                ? placeholderEntry.string.substring(0, placeholderEntry.string.length() - 1)
-                                : "";
 
                             SQLQueryCompletionTextProvider formatter = new SQLQueryCompletionTextProvider(
                                 request,
                                 completionContext,
                                 monitor
                             );
-                            String columnListString = prepareTupleColumns(tupleSource, null, false).stream()
-                                .map(c -> columnPrefix + c.apply(formatter))
+                            String columnListString = prepareTupleColumns(
+                                tupleSource.getKnownSources(),
+                                tupleSource.getColumnsList(),
+                                null,
+                                true
+                            ).stream()
+                                .map(c -> c.apply(formatter))
                                 .collect(Collectors.joining(", "));
                             request.setWordPart(SQLConstants.ASTERISK);
 
@@ -879,6 +896,19 @@ public abstract class SQLQueryCompletionContext {
                                 )
                             ), results);
                         }
+                    }
+
+                    @Override
+                    public void visitRowsSourceRef(@NotNull SQLQuerySymbolOrigin.RowsSourceRef rowsSourceRef) {
+                        SQLQuerySourcesInfoCollection knownSources = rowsSourceRef.getRowsSourceContext().getKnownSources();
+                        prepareTableCompletions(monitor, request, knownSources, filterOrNull, results);
+                    }
+
+                    @Override
+                    public void visitRowsDataRef(@NotNull SQLQuerySymbolOrigin.RowsDataRef rowsDataRef) {
+                        SQLQuerySourcesInfoCollection knownSources = rowsDataRef.getRowsDataContext().getRowsSources().getKnownSources();
+                        List<SQLQueryResultColumn> knownColumns = rowsDataRef.getRowsDataContext().getColumnsList();
+                        makeFilteredCompletionSet(filterOrNull, prepareTupleColumns(knownSources, knownColumns, filterOrNull, true), results);
                     }
                 });
             }
@@ -1021,7 +1051,12 @@ public abstract class SQLQueryCompletionContext {
                 @NotNull List<SQLQueryCompletionSet> results
             ) {
                 // directly available column
-                List<? extends SQLQueryCompletionItem> subsetColumns = this.prepareTupleColumns(context, filterOrNull, true);
+                List<? extends SQLQueryCompletionItem> subsetColumns = this.prepareTupleColumns(
+                    context.getKnownSources(),
+                    context.getColumnsList(),
+                    filterOrNull,
+                    true
+                );
                 // already referenced tables
                 LinkedList<SQLQueryCompletionItem> tableRefs = new LinkedList<>();
                 if (syntaxInspectionResult.expectingColumnReference()) {
@@ -1049,7 +1084,7 @@ public abstract class SQLQueryCompletionContext {
                 LinkedList<SQLQueryCompletionItem> procedureItems = this.prepareProceduresCompletions(
                     monitor,
                     request,
-                    context,
+                    context.getKnownSources(),
                     null,
                     filterOrNull
                 );
@@ -1064,7 +1099,7 @@ public abstract class SQLQueryCompletionContext {
             private LinkedList<SQLQueryCompletionItem> prepareProceduresCompletions(
                 @NotNull DBRProgressMonitor monitor,
                 @NotNull SQLCompletionRequest request,
-                @NotNull SQLQueryDataContext context,
+                @NotNull SQLQuerySourcesInfoCollection knownSources,
                 @Nullable List<DBSObjectContainer> container,
                 @Nullable SQLQueryWordEntry filterOrNull
             ) {
@@ -1075,7 +1110,7 @@ public abstract class SQLQueryCompletionContext {
                 LinkedList<SQLQueryCompletionItem> proceduresItems = new LinkedList<>();
                 try {
                     this.collectProcedures(monitor, request, objectContainers, null, filterOrNull, proceduresItems);
-                    this.collectPackages(monitor, request, context, this.exposedContexts, null, filterOrNull, proceduresItems);
+                    this.collectPackages(monitor, request, knownSources, this.exposedContexts, null, filterOrNull, proceduresItems);
                 } catch (DBException ex) {
                     log.error(ex);
                 }
@@ -1089,20 +1124,17 @@ public abstract class SQLQueryCompletionContext {
 
             @NotNull
             private List<? extends SQLQueryCompletionItem> prepareTupleColumns(
-                @NotNull SQLQueryDataContext context,
+                @NotNull SQLQuerySourcesInfoCollection knownSources,
+                @NotNull List<SQLQueryResultColumn> knownColumns,
                 @Nullable SQLQueryWordEntry filterOrNull,
-                boolean absolute
+                boolean useAbsoluteName
             ) {
-                boolean useAbsoluteName = absolute & (
-                    context.getKnownSources().getResolutionResults().size() > 1 ||
-                    context.getKnownSources().getAliasesInUse().size() > 0
-                );
-                Stream<? extends SQLQueryCompletionItem> subsetColumns = context.getColumnsList().stream()
+                Stream<? extends SQLQueryCompletionItem> subsetColumns = knownColumns.stream()
                     .map(rc -> {
                         SQLQueryWordEntry filterKey = makeFilterInfo(filterOrNull, rc.symbol.getName());
                         int score = filterKey.matches(filterOrNull, this.searchInsideWords);
                         return score <= 0 ? null : SQLQueryCompletionItem.forSubsetColumn(
-                            score, filterKey, rc, context.getKnownSources().getResolutionResults().get(rc.source), useAbsoluteName
+                            score, filterKey, rc, knownSources.getResolutionResults().get(rc.source), useAbsoluteName
                         );
                     }).filter(Objects::nonNull);
 
@@ -1112,12 +1144,12 @@ public abstract class SQLQueryCompletionContext {
             private void prepareTableCompletions(
                 @NotNull DBRProgressMonitor monitor,
                 @NotNull SQLCompletionRequest request,
-                @NotNull SQLQueryDataContext context,
+                @NotNull SQLQuerySourcesInfoCollection knownSources,
                 @Nullable SQLQueryWordEntry filterOrNull,
                 @NotNull List<SQLQueryCompletionSet> results
             ) {
                 LinkedList<SQLQueryCompletionItem> completions = new LinkedList<>();
-                for (SourceResolutionResult rr : context.getKnownSources().getResolutionResults().values()) {
+                for (SourceResolutionResult rr : knownSources.getResolutionResults().values()) {
                     if (rr.aliasOrNull != null && rr.isCteSubquery) {
                         SQLQueryWordEntry aliasName = makeFilterInfo(filterOrNull, rr.aliasOrNull.getName());
                         int score = aliasName.matches(filterOrNull, this.searchInsideWords);
@@ -1130,10 +1162,10 @@ public abstract class SQLQueryCompletionContext {
                 if (dbcExecutionContext != null) {
                     try {
                         Collection<DBSObjectContainer> containers = this.obtainDefaultContext(monitor, request);
-                        this.collectTables(monitor, context, containers, null, filterOrNull, completions);
+                        this.collectTables(monitor, knownSources, containers, null, filterOrNull, completions);
                         // usually we don't want procedures in FROM
                         //this.collectProcedures(monitor, request, containers, null, filterOrNull, completions);
-                        this.collectPackages(monitor, request, context, this.exposedContexts,  null, filterOrNull, completions);
+                        this.collectPackages(monitor, request, knownSources, this.exposedContexts,  null, filterOrNull, completions);
                     } catch (DBException e) {
                         log.error(e);
                     }
@@ -1146,7 +1178,7 @@ public abstract class SQLQueryCompletionContext {
             private void prepareObjectCompletions(
                 @NotNull DBRProgressMonitor monitor,
                 @NotNull SQLCompletionRequest request,
-                @NotNull SQLQueryDataContext context,
+                @NotNull SQLQuerySourcesInfoCollection knownSources,
                 @NotNull Collection<DBSObjectContainer> contexts,
                 @Nullable SQLQueryCompletionItem.ContextObjectInfo contextObjext,
                 @NotNull Set<DBSObjectType> objectTypes,
@@ -1158,7 +1190,7 @@ public abstract class SQLQueryCompletionContext {
                 try {
                     this.collectImmediateChildren(
                         monitor,
-                        context,
+                        knownSources,
                         contexts,
                         o -> objectTypes.stream().anyMatch(t -> t.getTypeClass().isAssignableFrom(o.getClass())) && objs.add(o),
                         contextObjext,
@@ -1256,7 +1288,7 @@ public abstract class SQLQueryCompletionContext {
             private void collectPackages(
                 @NotNull DBRProgressMonitor monitor,
                 @NotNull SQLCompletionRequest request,
-                @NotNull SQLQueryDataContext context,
+                @NotNull SQLQuerySourcesInfoCollection knownSources,
                 @NotNull Collection<DBSObjectContainer> contexts,
                 @Nullable SQLQueryCompletionItem.ContextObjectInfo contextObjext,
                 @Nullable SQLQueryWordEntry filterOrNull,
@@ -1265,7 +1297,7 @@ public abstract class SQLQueryCompletionContext {
                 if (request.getContext().isSearchProcedures()) {
                     this.collectImmediateChildren(
                         monitor,
-                        context,
+                        knownSources,
                         contexts,
                         o -> o instanceof DBSProcedureContainer,
                         contextObjext,
@@ -1312,14 +1344,14 @@ public abstract class SQLQueryCompletionContext {
 
             private void collectTables(
                 @NotNull DBRProgressMonitor monitor,
-                @NotNull SQLQueryDataContext context,
+                @NotNull SQLQuerySourcesInfoCollection knownSources,
                 @NotNull Collection<DBSObjectContainer> containers,
                 @Nullable SQLQueryCompletionItem.ContextObjectInfo contextObjext,
                 @Nullable SQLQueryWordEntry filterOrNull,
                 @NotNull LinkedList<SQLQueryCompletionItem> accumulator
             ) throws DBException {
                 this.collectImmediateChildren(
-                    monitor, context, containers,
+                    monitor, knownSources, containers,
                     o -> o instanceof DBSTable || o instanceof DBSView,
                     contextObjext, filterOrNull, accumulator
                 );
@@ -1418,6 +1450,10 @@ public abstract class SQLQueryCompletionContext {
 
                 LSMInspections inspections = new LSMInspections(dialect, syntaxNode);
                 LSMInspections.SyntaxInspectionResult syntaxInspectionResult = inspections.prepareAbstractSyntaxInspection(position);
+                if (syntaxInspectionResult == null) {
+                    return SQLQueryCompletionContext.prepareOffquery(scriptItem.offset, offset);
+                }
+
                 SQLQueryModel.LexicalContextResolutionResult context = model.findLexicalContext(
                     Math.min(position, model.getSyntaxNode().getRealInterval().b + 1)
                 );
