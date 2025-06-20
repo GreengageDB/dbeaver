@@ -24,6 +24,7 @@ import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.sql.parser.SQLWordPartDetector;
+import org.jkiss.dbeaver.model.sql.semantics.completion.ISqlCompletionProposal;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectReference;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedure;
@@ -37,7 +38,7 @@ import java.util.Map;
 /**
  * SQL Completion proposal
  */
-public class SQLCompletionProposalBase extends CompletionProposalBase {
+public class SQLCompletionProposalBase extends CompletionProposalBase implements ISqlCompletionProposal {
 
     public static final String PARAM_EXEC = "exec";
 
