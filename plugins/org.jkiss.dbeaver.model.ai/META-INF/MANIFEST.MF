@@ -15,7 +15,7 @@ Export-Package: org.jkiss.dbeaver.model.ai,
  org.jkiss.dbeaver.model.ai.prompt,
  org.jkiss.dbeaver.model.ai.registry,
  org.jkiss.dbeaver.model.ai.utils
-Bundle-Release-Date: 20250616
+Bundle-Release-Date: 20250623
 Bundle-RequiredExecutionEnvironment: JavaSE-21
 Bundle-ActivationPolicy: lazy
 Automatic-Module-Name: org.jkiss.dbeaver.model.ai
