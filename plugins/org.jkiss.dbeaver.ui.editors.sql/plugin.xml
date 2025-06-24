@@ -1150,6 +1150,20 @@
             </menu>
         </menuContribution>
         <menuContribution allPopups="false" locationURI="popup:org.jkiss.dbeaver.ui.editors.sql.SQLEditor.EditorContext?after=sql.extras">
+            <menu id="org.jkiss.dbeaver.ui.editors.sql.SQLEditor.ai" label="%menu.org.jkiss.dbeaver.ui.editors.sql.SQLEditor.ai.label" icon="platform:/plugin/org.jkiss.dbeaver.model/icons/misc/ai.png">
+                <command commandId="com.dbeaver.ai.sql.suggestion">
+                    <visibleWhen checkEnabled="true">
+                        <reference definitionId="org.jkiss.dbeaver.core.ai.suggestion.enabled"/>
+                    </visibleWhen>
+                </command>
+                <command commandId="com.dbeaver.ai.explain.query">
+                    <visibleWhen checkEnabled="true">
+                        <reference definitionId="org.jkiss.dbeaver.core.ai.suggestion.enabled"/>
+                    </visibleWhen>
+                </command>
+            </menu>
+        </menuContribution>
+        <menuContribution allPopups="false" locationURI="popup:org.jkiss.dbeaver.ui.editors.sql.SQLEditor.EditorContext?after=sql.extras">
             <menu id="org.jkiss.dbeaver.ui.editors.sql.SQLEditor.layout" label="%menu.org.jkiss.dbeaver.ui.editors.sql.SQLEditor.layout.label">
                 <dynamic id="org.jkiss.dbeaver.ui.editors.sql.SQLEditor.layout.resultSet.orientation" class="org.jkiss.dbeaver.ui.editors.sql.SQLEditor$ResultSetOrientationMenuContributor"/>
                 <separator name="mode_toggles" visible="true"/>
