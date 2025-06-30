@@ -151,8 +151,10 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
-import java.util.List;
 import java.util.*;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
@@ -263,6 +265,9 @@ public class SQLEditor extends SQLEditorBase implements
     public SQLSuggestionTextPainter getSuggestionTextPainter() {
         return suggestionTextPainter;
     }
+
+//    private final ExecutorService executorService = Executors.newCachedThreadPool();
+    private final ExecutorService executorService = Executors.newFixedThreadPool(4);
 
     private static class ServerOutputInfo {
         private final DBCServerOutputReader outputReader;
@@ -2814,10 +2819,7 @@ public class SQLEditor extends SQLEditorBase implements
             return false;
         }
 
-        SQLScriptContext scriptContext = context;
-        if (scriptContext == null) {
-            scriptContext = createScriptContext();
-        }
+        final SQLScriptContext scriptContext = context != null ? context : createScriptContext();
 
         final boolean isSingleQuery = !forceScript && (queries.size() == 1);
         if (isSingleQuery && queries.get(0) instanceof SQLQuery query) {
@@ -2933,14 +2935,32 @@ public class SQLEditor extends SQLEditorBase implements
             createQueryProcessor(true, isSingleQuery, true);
         }
 
+        boolean closeTabOnError = !export && getActivePreferenceStore().getBoolean(SQLPreferenceConstants.RESULT_SET_CLOSE_ON_ERROR);
+        if (!isSingleQuery && newTab) {
+            for (SQLScriptElement query : queries) {
+                new SingleTabQueryProcessor(false)
+                    .processQueries(
+                        scriptContext,
+                        Collections.singletonList(query),
+                        forceScript,
+                        false,
+                        export,
+                        closeTabOnError,
+                        queryListener
+                    );
+            }
+            return true;
+        }
+
         return curQueryProcessor.processQueries(
             scriptContext,
             queries,
             forceScript,
             false,
             export,
-            !export && getActivePreferenceStore().getBoolean(SQLPreferenceConstants.RESULT_SET_CLOSE_ON_ERROR),
-            queryListener);
+            closeTabOnError,
+            queryListener
+        );
     }
 
     public boolean isActiveQueryRunning() {
