@@ -33,7 +33,7 @@ import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.utils.CommonUtils;
 
-public class SQLQueryCompletionProposal extends CompletionProposalBase implements ISqlCompletionProposal {
+public class SQLQueryCompletionProposal extends CompletionProposalBase {
 
     private static final Log log = Log.getLog(SQLQueryCompletionProposal.class);
     protected static final boolean DEBUG = false;
