@@ -36,7 +36,6 @@ import java.util.concurrent.Flow;
 
 public class OpenAICompletionEngine<PROPS extends OpenAIBaseProperties> extends BaseCompletionEngine<PROPS> {
     private static final Log log = Log.getLog(OpenAICompletionEngine.class);
-    public static final String OPENAI_ENDPOINT = "https://api.openai.com/v1/";
 
     private final DisposableLazyValue<OpenAIClient, DBException> openAiService = new DisposableLazyValue<>() {
         @NotNull
@@ -57,7 +56,12 @@ public class OpenAICompletionEngine<PROPS extends OpenAIBaseProperties> extends 
 
     @Override
     public int getMaxContextSize(@NotNull DBRProgressMonitor monitor) throws DBException {
-        return OpenAIModel.getByName(getProperties().getModel()).getMaxTokens();
+        Integer contextWindowSize = getProperties().getContextWindowSize();
+        if (contextWindowSize == null) {
+            throw new DBException("Context window size is not set for OpenAI engine. Please configure it in settings.");
+        }
+
+        return contextWindowSize;
     }
 
     @NotNull
@@ -166,14 +170,11 @@ public class OpenAICompletionEngine<PROPS extends OpenAIBaseProperties> extends 
     }
 
     protected OpenAIClient createClient() throws DBException {
-        return new OpenAIClient(
-            OPENAI_ENDPOINT,
-            List.of(new OpenAIRequestFilter(getProperties().getToken()))
-        );
+        return OpenAIClient.createClient(getProperties().getToken());
     }
 
     protected String model() throws DBException {
-        return OpenAIModel.getByName(getProperties().getModel()).getName();
+        return getProperties().getModel();
     }
 
     protected double temperature() throws DBException {

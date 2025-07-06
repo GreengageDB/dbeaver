@@ -19,6 +19,7 @@ package org.jkiss.dbeaver.model.ai.engine.openai;
 import com.google.gson.annotations.SerializedName;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.ai.AIConstants;
+import org.jkiss.dbeaver.model.ai.AIModels;
 import org.jkiss.dbeaver.model.ai.utils.AIUtils;
 import org.jkiss.dbeaver.model.meta.SecureProperty;
 import org.jkiss.dbeaver.model.secret.DBSSecretController;
@@ -31,6 +32,9 @@ public class OpenAIProperties implements OpenAIBaseProperties {
 
     @SerializedName("gpt.model")
     private String model;
+
+    @SerializedName("gpt.model.context.window.size")
+    private Integer contextWindowSize;
 
     @SerializedName("gpt.model.temperature")
     private double temperature;
@@ -46,10 +50,12 @@ public class OpenAIProperties implements OpenAIBaseProperties {
     @Override
     public String getModel() {
         if (fallbackToPrefStore()) {
-            return DBWorkbench.getPlatform().getPreferenceStore().getString(OpenAIConstants.GPT_MODEL);
+            String modelName = DBWorkbench.getPlatform().getPreferenceStore()
+                .getString(OpenAIConstants.GPT_MODEL);
+            return AIModels.getEffectiveModelName(modelName);
         }
 
-        return model;
+        return AIModels.getEffectiveModelName(model);
     }
 
     @Override
@@ -86,6 +92,18 @@ public class OpenAIProperties implements OpenAIBaseProperties {
 
     public void setModel(String model) {
         this.model = model;
+    }
+
+    public Integer getContextWindowSize() {
+        if (contextWindowSize != null) {
+            return contextWindowSize;
+        }
+
+        return AIModels.getContextWindowSize(getModel());
+    }
+
+    public void setContextWindowSize(Integer contextWindowSize) {
+        this.contextWindowSize = contextWindowSize;
     }
 
     public void setTemperature(double temperature) {

@@ -17,21 +17,23 @@
 package org.jkiss.dbeaver.model.ai.engine.openai;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.theokanning.openai.completion.chat.ChatCompletionChunk;
 import com.theokanning.openai.completion.chat.ChatCompletionRequest;
 import com.theokanning.openai.completion.chat.ChatCompletionResult;
+import com.theokanning.openai.model.Model;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.ai.engine.TooManyRequestsException;
 import org.jkiss.dbeaver.model.ai.utils.AIHttpUtils;
 import org.jkiss.dbeaver.model.ai.utils.MonitoredHttpClient;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 
+import java.io.Closeable;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -40,8 +42,8 @@ import java.util.List;
 import java.util.concurrent.Flow;
 import java.util.concurrent.SubmissionPublisher;
 
-public class OpenAIClient {
-    private static final Log log = Log.getLog(OpenAIClient.class);
+public class OpenAIClient implements Closeable {
+    private static final String OPENAI_ENDPOINT = "https://api.openai.com/v1/";
 
     private static final String DATA_EVENT = "data: ";
     private static final String DONE_EVENT = "[DONE]";
@@ -50,6 +52,9 @@ public class OpenAIClient {
         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
         .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
         .setSerializationInclusion(JsonInclude.Include.NON_NULL);
+    private static final TypeReference<OpenAIModelList> MODEL_LIST_TYPE = new TypeReference<>() {
+    };
+    private static final TypeReference<ChatCompletionResult> CHAT_RESULT_TYPE = new TypeReference<>() {};
 
     private final String baseUrl;
     private final List<HttpRequestFilter> requestFilters;
@@ -61,6 +66,29 @@ public class OpenAIClient {
     ) {
         this.baseUrl = baseUrl;
         this.requestFilters = requestFilters;
+    }
+
+    public static OpenAIClient createClient(String token) {
+        return new OpenAIClient(
+            OPENAI_ENDPOINT,
+            List.of(new OpenAIRequestFilter(token))
+        );
+    }
+
+    public List<Model> getModels(@NotNull DBRProgressMonitor monitor) throws DBException {
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(AIHttpUtils.resolve(baseUrl, "models"))
+            .GET()
+            .timeout(TIMEOUT)
+            .build();
+
+        HttpRequest modifiedRequest = applyFilters(request);
+        HttpResponse<String> response = client.send(monitor, modifiedRequest);
+        if (response.statusCode() == 200) {
+            return deserializeValue(response.body(), MODEL_LIST_TYPE).data();
+        } else {
+            throw new DBException("Request failed: " + response.statusCode() + ", body=" + response.body());
+        }
     }
 
     @NotNull
@@ -77,7 +105,7 @@ public class OpenAIClient {
         HttpRequest modifiedRequest = applyFilters(request);
         HttpResponse<String> response = client.send(monitor, modifiedRequest);
         if (response.statusCode() == 200) {
-            return deserializeValue(response.body(), ChatCompletionResult.class);
+            return deserializeValue(response.body(), CHAT_RESULT_TYPE);
         } else if (response.statusCode() == 429) {
             throw new TooManyRequestsException("Too many requests: " + response.body());
         } else {
@@ -145,7 +173,7 @@ public class OpenAIClient {
     }
 
     @NotNull
-    private static <T> T deserializeValue(@NotNull String value, @NotNull Class<T> type) throws DBException {
+    private static <T> T deserializeValue(@NotNull String value, @NotNull TypeReference<T> type) throws DBException {
         try {
             return MAPPER.readValue(value, type);
         } catch (Exception e) {

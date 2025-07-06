@@ -24,7 +24,7 @@ import org.jkiss.dbeaver.model.ai.engine.copilot.dto.CopilotChatChunk;
 import org.jkiss.dbeaver.model.ai.engine.copilot.dto.CopilotChatRequest;
 import org.jkiss.dbeaver.model.ai.engine.copilot.dto.CopilotMessage;
 import org.jkiss.dbeaver.model.ai.engine.copilot.dto.CopilotSessionToken;
-import org.jkiss.dbeaver.model.ai.engine.openai.OpenAIModel;
+import org.jkiss.dbeaver.model.ai.engine.openai.OpenAIConstants;
 import org.jkiss.dbeaver.model.ai.registry.AISettingsRegistry;
 import org.jkiss.dbeaver.model.ai.utils.DisposableLazyValue;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
@@ -57,7 +57,12 @@ public class CopilotCompletionEngine extends BaseCompletionEngine<CopilotPropert
 
     @Override
     public int getMaxContextSize(@NotNull DBRProgressMonitor monitor) throws DBException {
-        return OpenAIModel.getByName(getModelName()).getMaxTokens();
+        Integer contextWindowSize = getProperties().getContextWindowSize();
+        if (contextWindowSize == null) {
+            throw new DBException("Context window size is not set for Copilot engine. Please configure it in settings.");
+        }
+
+        return contextWindowSize;
     }
 
     @NotNull
@@ -168,7 +173,7 @@ public class CopilotCompletionEngine extends BaseCompletionEngine<CopilotPropert
     public String getModelName() throws DBException {
         return CommonUtils.toString(
             getProperties().getModel(),
-            OpenAIModel.GPT_TURBO.getName()
+            OpenAIConstants.DEFAULT_MODEL
         );
     }
 

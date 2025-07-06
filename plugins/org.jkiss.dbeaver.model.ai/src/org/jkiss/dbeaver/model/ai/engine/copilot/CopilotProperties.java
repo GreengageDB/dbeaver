@@ -18,6 +18,7 @@ package org.jkiss.dbeaver.model.ai.engine.copilot;
 
 import com.google.gson.annotations.SerializedName;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.model.ai.AIModels;
 import org.jkiss.dbeaver.model.ai.engine.AIEngineProperties;
 import org.jkiss.dbeaver.model.ai.utils.AIUtils;
 import org.jkiss.dbeaver.model.meta.SecureProperty;
@@ -31,6 +32,9 @@ public class CopilotProperties implements AIEngineProperties {
 
     @SerializedName("gpt.model")
     private String model;
+
+    @SerializedName("gpt.model.context.window.size")
+    private Integer contextWindowSize;
 
     @SerializedName("gpt.model.temperature")
     private double temperature;
@@ -52,6 +56,18 @@ public class CopilotProperties implements AIEngineProperties {
 
     public void setModel(String model) {
         this.model = model;
+    }
+
+    public Integer getContextWindowSize() {
+        if (contextWindowSize != null) {
+            return contextWindowSize;
+        }
+
+        return AIModels.getContextWindowSize(model);
+    }
+
+    public void setContextWindowSize(Integer contextWindowSize) {
+        this.contextWindowSize = contextWindowSize;
     }
 
     public double getTemperature() {

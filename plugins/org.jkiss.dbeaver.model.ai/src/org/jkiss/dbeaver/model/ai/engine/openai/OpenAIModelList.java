@@ -16,24 +16,11 @@
  */
 package org.jkiss.dbeaver.model.ai.engine.openai;
 
-import org.jkiss.dbeaver.model.ai.engine.AIEngineProperties;
-import org.jkiss.utils.CommonUtils;
+import com.theokanning.openai.model.Model;
 
-public interface OpenAIBaseProperties extends AIEngineProperties {
+import java.util.List;
 
-    String getToken();
-
-    String getModel();
-
-    Integer getContextWindowSize();
-
-    double getTemperature();
-
-    boolean isLoggingEnabled();
-
-    @Override
-    default boolean isValidConfiguration() {
-        return !CommonUtils.isEmpty(getToken());
-    }
-
+public record OpenAIModelList(
+    List<Model> data
+) {
 }
