@@ -3,10 +3,10 @@
 <schema targetNamespace="org.jkiss.dbeaver.model.ai" xmlns="http://www.w3.org/2001/XMLSchema">
 <annotation>
       <appInfo>
-         <meta.schema plugin="com.dbeaver.ai.formatter" id="com.dbeaver.ai.formatter" name="AI formatters"/>
+         <meta.schema plugin="com.dbeaver.ai.ddl.generator" id="com.dbeaver.ai.ddl.generator" name="AI DDL Generators"/>
       </appInfo>
       <documentation>
-         AI formatters
+         AI DDL Generators
       </documentation>
    </annotation>
 
@@ -18,20 +18,20 @@
       </annotation>
       <complexType>
          <sequence>
-            <element ref="formatter" minOccurs="0" maxOccurs="unbounded"/>
+            <element ref="generator" minOccurs="0" maxOccurs="unbounded"/>
          </sequence>
       </complexType>
    </element>
 
-   <element name="formatter">
+   <element name="generator">
       <complexType>
          <attribute name="class" type="string">
             <annotation>
                <documentation>
-                  
+
                </documentation>
                <appInfo>
-                  <meta.attribute kind="java" basedOn=":org.jkiss.dbeaver.model.ai.prompt.AIPromptFormatter"/>
+                  <meta.attribute kind="java" basedOn=":org.jkiss.dbeaver.model.ai.AIDdlGenerator"/>
                </appInfo>
             </annotation>
          </attribute>

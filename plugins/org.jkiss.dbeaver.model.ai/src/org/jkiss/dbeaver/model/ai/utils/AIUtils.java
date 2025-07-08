@@ -26,14 +26,11 @@ import org.jkiss.dbeaver.model.ai.AIConstants;
 import org.jkiss.dbeaver.model.ai.AIMessage;
 import org.jkiss.dbeaver.model.ai.AIMessageType;
 import org.jkiss.dbeaver.model.ai.engine.AIEngine;
-import org.jkiss.dbeaver.model.ai.prompt.AIPromptFormatter;
-import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.secret.DBSSecretController;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSEntityConstraint;
 import org.jkiss.dbeaver.model.struct.DBSObject;
-import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
 import org.jkiss.dbeaver.model.struct.rdb.*;
 import org.jkiss.dbeaver.registry.DataSourceDescriptor;
 import org.jkiss.utils.CommonUtils;
@@ -43,6 +40,10 @@ import java.util.List;
 import java.util.Map;
 
 public final class AIUtils {
+    /**
+     * How many characters we roughly get from a single token.
+     */
+    public static final int TOKEN_TO_CHAR_RATIO = 2;
 
     private static final Log log = Log.getLog(AIUtils.class);
 
@@ -79,14 +80,12 @@ public final class AIUtils {
     /**
      * Truncates messages to fit into the given number of tokens.
      *
-     * @param chatMode  true if chat mode is enabled
      * @param messages  list of messages
      * @param maxTokens maximum number of tokens
      * @return list of truncated messages
      */
     @NotNull
     public static List<AIMessage> truncateMessages(
-        boolean chatMode,
         @NotNull List<AIMessage> messages,
         int maxTokens
     ) {
@@ -108,12 +107,7 @@ public final class AIUtils {
             final int messageTokens = message.getContent().length();
 
             if (remainingTokens < 0 || messageTokens > remainingTokens) {
-                // Exclude old messages that don't fit into given number of tokens
-                if (chatMode) {
-                    break;
-                } else {
-                    // Truncate message itself
-                }
+                break;
             }
 
             AIMessage truncatedMessage = truncateMessage(message, remainingTokens);
@@ -141,7 +135,7 @@ public final class AIUtils {
     }
 
     private static String removeContentTokens(String content, int tokensToRemove) {
-        int charsToRemove = tokensToRemove * 2;
+        int charsToRemove = tokensToRemove * TOKEN_TO_CHAR_RATIO;
         if (charsToRemove >= content.length()) {
             return "";
         }
@@ -149,30 +143,7 @@ public final class AIUtils {
     }
 
     private static int countContentTokens(String content) {
-        return content.length() / 2;
-    }
-
-    /**
-     * Processes completion text.
-     */
-    @NotNull
-    public static String processCompletion(
-        @NotNull DBRProgressMonitor monitor,
-        @NotNull DBCExecutionContext executionContext,
-        @NotNull DBSObjectContainer mainObject,
-        @NotNull String completionText,
-        @NotNull AIPromptFormatter formatter,
-        boolean isChatAPI
-    ) {
-        if (CommonUtils.isEmpty(completionText)) {
-            return "";
-        }
-
-        if (!isChatAPI) {
-            completionText = "SELECT " + completionText.trim() + ";";
-        }
-
-        return formatter.postProcessGeneratedQuery(monitor, mainObject, executionContext, completionText).trim();
+        return content.length() / TOKEN_TO_CHAR_RATIO;
     }
 
     /**
