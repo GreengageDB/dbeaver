@@ -160,7 +160,10 @@ public class ConnectionPageNetworkHandler extends ConnectionWizardPage {
                 configuratorEnableState = ControlEnableState.disable(configuratorPlaceholder);
             }
 
-            profileProvidedHint.setText(NLS.bind("Using configuration from profile ''<a href=\"#\">{0}</a>''", profile.getProfileName().trim()));
+            profileProvidedHint.setText(NLS.bind(
+                "Using configuration from profile ''<a href=\"#\">{0}</a>''",
+                profile.getProfileName().trim()
+            ));
             UIUtils.setControlVisible(profileProvidedHint.getParent(), true);
         } else {
              UIUtils.setControlVisible(profileProvidedHint.getParent(), false);
