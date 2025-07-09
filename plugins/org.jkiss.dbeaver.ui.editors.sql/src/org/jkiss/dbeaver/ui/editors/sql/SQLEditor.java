@@ -987,14 +987,18 @@ public class SQLEditor extends SQLEditorBase implements
                 UIServiceConnections serviceConnections = DBWorkbench.getService(UIServiceConnections.class);
                 if (serviceConnections != null) {
                     // Start connect visualizer
-                    ConnectVisualizer connectVisualizer = new ConnectVisualizer();
-                    serviceConnections.connectDataSource(dataSourceContainer, status -> {
-                        // We must reload syntax to refresh context
-                        UIUtils.syncExec(this::reloadSyntaxRules);
-                        if (onFinish != null) {
-                            onFinish.onTaskFinished(status);
-                        }
-                        connectVisualizer.stop();
+                    UIUtils.asyncExec(() -> {
+                        ConnectVisualizer connectVisualizer = new ConnectVisualizer();
+                        serviceConnections.connectDataSource(
+                            dataSourceContainer, status -> {
+                                // We must reload syntax to refresh context
+                                UIUtils.syncExec(this::reloadSyntaxRules);
+                                if (onFinish != null) {
+                                    onFinish.onTaskFinished(status);
+                                }
+                                connectVisualizer.stop();
+                            }
+                        );
                     });
                 }
             }
