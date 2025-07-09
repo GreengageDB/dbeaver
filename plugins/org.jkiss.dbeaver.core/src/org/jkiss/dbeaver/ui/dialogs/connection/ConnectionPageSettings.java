@@ -467,7 +467,7 @@ class ConnectionPageSettings extends ActiveWizardPage<ConnectionWizard> implemen
     private void updateProfileItem() {
         String profileName = getActiveDataSource().getConnectionConfiguration().getConfigProfileName();
         if (CommonUtils.isNotEmpty(profileName)) {
-            profileItem.setText(NLS.bind("Profile ''{0}''", profileName));
+            profileItem.setText(NLS.bind("Profile ''{0}''", profileName.trim()));
             profileItem.setToolTipText(NLS.bind("Active profile is ''{0}''", profileName));
         } else {
             profileItem.setText("No profile");
