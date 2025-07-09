@@ -144,10 +144,14 @@ public class PrefPageProjectNetworkProfiles extends PrefPageNetworkProfiles impl
                 getShell(),
                 UIConnectionMessages.pref_page_network_profiles_tool_create_dialog_profile_name,
                 profileName
-            ).trim();
+            );
 
             if (CommonUtils.isEmpty(profileName)) {
                 return null;
+            }
+
+            if (CommonUtils.isNotEmpty(profileName)) {
+                profileName = profileName.trim();
             }
 
             if (projectMeta.getDataSourceRegistry().getNetworkProfile(null, profileName) != null) {
