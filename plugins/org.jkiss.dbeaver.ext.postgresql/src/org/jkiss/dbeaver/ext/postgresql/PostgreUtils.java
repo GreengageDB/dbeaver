@@ -30,6 +30,7 @@ import org.jkiss.dbeaver.ext.postgresql.model.impls.PostgreServerPostgreSQL;
 import org.jkiss.dbeaver.ext.postgresql.model.impls.PostgreServerType;
 import org.jkiss.dbeaver.ext.postgresql.model.impls.PostgreServerTypeRegistry;
 import org.jkiss.dbeaver.model.DBPDataKind;
+import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPScriptObject;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
@@ -120,22 +121,13 @@ public class PostgreUtils {
         return null;
     }
 
-    public static boolean isPGObject(Object object) {
-        if (object == null) {
-            return false;
-        }
-        String className = object.getClass().getName();
-        return className.equals(PostgreConstants.PG_OBJECT_CLASS) ||
-            className.equals(PostgreConstants.RS_OBJECT_CLASS) ||
-            className.equals(PostgreConstants.EDB_OBJECT_CLASS);
-    }
-
     public static Object extractPGObjectValue(Object pgObject) {
         if (pgObject == null) {
             return null;
         }
-        if (!isPGObject(pgObject)) {
-            return pgObject;
+        PostgreDataSource postgreDataSource = getPostgreDataSource(pgObject);
+        if (postgreDataSource != null) {
+            return !postgreDataSource.isPGObject(pgObject);
         }
         try {
             return pgObject.getClass().getMethod("getValue").invoke(pgObject);
@@ -1058,8 +1050,48 @@ public class PostgreUtils {
                 break;
             }
         }
-        if (lastPos < 0) lastPos = url.length();
+        if (lastPos < 0)
+            lastPos = url.length();
         return lastPos;
+    }
+
+    @Nullable
+    public static PostgreDataSource getPostgreDataSource(@Nullable Object object) {
+        if (object == null) {
+            return null;
+        }
+
+        if (object instanceof PostgreDataSource postgreDataSource) {
+            return postgreDataSource;
+        }
+
+        try {
+            if (object instanceof DBSObject dbsObject) {
+                DBPDataSource dataSource = dbsObject.getDataSource();
+                if (dataSource instanceof PostgreDataSource postgreDataSource) {
+                    return postgreDataSource;
+                }
+            }
+        } catch (Exception ignored) {
+            // ignored
+        }
+
+
+        try {
+            if (object instanceof DBSObject dbsObject) {
+                DBCExecutionContext context = DBUtils.getDefaultContext(dbsObject, false);
+                if (context != null) {
+                    DBPDataSource dataSource = context.getDataSource();
+                    if (dataSource instanceof PostgreDataSource postgreDataSource) {
+                        return postgreDataSource;
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // ignored
+        }
+
+        return null;
     }
 
 }

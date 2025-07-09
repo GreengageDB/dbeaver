@@ -24,7 +24,6 @@ import org.jkiss.dbeaver.ext.postgresql.PostgreUtils;
 import org.jkiss.dbeaver.ext.postgresql.PostgreValueParser;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreDataSource;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreDataType;
-import org.jkiss.dbeaver.ext.postgresql.model.PostgreTypeType;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.data.DBDCollection;
 import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
@@ -71,8 +70,10 @@ public class PostgreArrayValueHandler extends JDBCArrayValueHandler {
             }
 
             String className = object.getClass().getName();
+            PostgreDataSource postgreDataSource = PostgreUtils.getPostgreDataSource(object);
+            boolean isPgObject = postgreDataSource != null && postgreDataSource.isPGObject(object);
             if (object instanceof String ||
-                PostgreUtils.isPGObject(object) ||
+                isPgObject ||
                 className.equals(PostgreConstants.PG_ARRAY_CLASS))
             {
                 if (className.equals(PostgreConstants.PG_ARRAY_CLASS)) {
@@ -80,7 +81,7 @@ public class PostgreArrayValueHandler extends JDBCArrayValueHandler {
                     // Otherwise we may have problems with domain types decoding (as they come in form of PgObject)
                     String strValue = object.toString();
                     return convertStringArrayToCollection(session, arrayType, itemType, strValue);
-                } else if (PostgreUtils.isPGObject(object)) {
+                } else if (isPgObject) {
                     final Object value = PostgreUtils.extractPGObjectValue(object);
                     if (value instanceof String) {
                         return convertStringArrayToCollection(session, arrayType, itemType, (String) value);

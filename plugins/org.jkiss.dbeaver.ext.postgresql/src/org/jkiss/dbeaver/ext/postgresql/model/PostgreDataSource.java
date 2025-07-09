@@ -931,4 +931,12 @@ public class PostgreDataSource extends JDBCDataSource implements DBSInstanceCont
     public boolean isSupportsReltypeColumn() {
         return supportsReltypeColumn;
     }
+
+    public boolean isPGObject(Object object) {
+        if (object == null) {
+            return false;
+        }
+        String className = object.getClass().getName();
+        return className.equals(PostgreConstants.PG_OBJECT_CLASS);
+    }
 }

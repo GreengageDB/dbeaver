@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2024 DBeaver Corp and others
+ * Copyright (C) 2010-2025 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.jkiss.dbeaver.ext.postgresql.model.data;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.ext.postgresql.PostgreUtils;
+import org.jkiss.dbeaver.ext.postgresql.model.PostgreDataSource;
 import org.jkiss.dbeaver.model.data.DBDContent;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCSession;
@@ -43,7 +44,9 @@ public class PostgreJSONValueHandler extends JDBCContentValueHandler {
     @Override
     public DBDContent getValueFromObject(@NotNull DBCSession session, @NotNull DBSTypedObject type, Object object, boolean copy, boolean validateValue) throws DBCException
     {
-        if (PostgreUtils.isPGObject(object)) {
+        PostgreDataSource postgreDataSource = PostgreUtils.getPostgreDataSource(object);
+        boolean isPgObject = postgreDataSource != null && postgreDataSource.isPGObject(object);
+        if (isPgObject) {
             object = PostgreUtils.extractPGObjectValue(object);
         }
         if (object == null) {
