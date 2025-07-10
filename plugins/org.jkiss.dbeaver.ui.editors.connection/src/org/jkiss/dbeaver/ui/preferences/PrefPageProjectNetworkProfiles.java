@@ -146,13 +146,11 @@ public class PrefPageProjectNetworkProfiles extends PrefPageNetworkProfiles impl
                 profileName
             );
 
-            if (CommonUtils.isEmpty(profileName)) {
+            if (CommonUtils.isEmptyTrimmed(profileName)) {
                 return null;
             }
 
-            if (CommonUtils.isNotEmpty(profileName)) {
-                profileName = profileName.trim();
-            }
+            profileName = profileName.trim();
 
             if (projectMeta.getDataSourceRegistry().getNetworkProfile(null, profileName) != null) {
                 UIUtils.showMessageBox(
