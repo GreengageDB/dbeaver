@@ -16,6 +16,7 @@
  */
 package org.jkiss.dbeaver.ui.editors.sql.preferences;
 
+import org.eclipse.core.runtime.Platform;
 import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
@@ -33,9 +34,12 @@ import org.jkiss.dbeaver.ui.editors.EditorUtils;
 import org.jkiss.dbeaver.ui.editors.sql.SQLEditor;
 import org.jkiss.dbeaver.ui.editors.sql.SQLPreferenceConstants;
 import org.jkiss.dbeaver.ui.editors.sql.internal.SQLEditorMessages;
+import org.jkiss.dbeaver.ui.editors.sql.registry.ISQLPresentationContributor;
+import org.jkiss.dbeaver.ui.editors.sql.registry.SQLPresentationRegistry;
 import org.jkiss.dbeaver.ui.preferences.TargetPrefPage;
 import org.jkiss.dbeaver.utils.PrefUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -62,6 +66,7 @@ public class PrefPageSQLEditor extends TargetPrefPage {
     private Button autoOpenOutputView;
     private Button replaceCurrentTab;
     private Spinner sizeWarningThresholdSpinner;
+    private List<SQLEditorPresentationRef> presentationRefs = new ArrayList<>();
 
     public PrefPageSQLEditor() {
         super();
@@ -160,6 +165,29 @@ public class PrefPageSQLEditor extends TargetPrefPage {
         }
 
         {
+            presentationRefs = SQLPresentationRegistry.getInstance().getToggleablePresentations().stream()
+                .map(SQLEditorPresentationRef::new)
+                .toList();
+
+            Group group = null;
+            for (var ref : presentationRefs) {
+                if (Platform.getBundle(ref.contributor.getBundleName()) != null) {
+                    if (group == null) {
+                        group = UIUtils.createControlGroup(
+                            composite,
+                            SQLEditorMessages.pref_page_sql_editor_group_presentations,
+                            1,
+                            GridData.VERTICAL_ALIGN_BEGINNING,
+                            0
+                        );
+                        ((GridData) group.getLayoutData()).horizontalSpan = 2;
+                    }
+                    ref.button = UIUtils.createCheckbox(group, ref.contributor.getLabel(), ref.contributor.getTooltip(), true, 1);
+                }
+            }
+        }
+
+        {
             Composite linksGroup = UIUtils.createControlGroup(composite, "", 1, GridData.HORIZONTAL_ALIGN_BEGINNING, 0);
 
             UIUtils.createPreferenceLink(
@@ -209,6 +237,13 @@ public class PrefPageSQLEditor extends TargetPrefPage {
             }
             store.setValue(SQLPreferenceConstants.OUTPUT_PANEL_AUTO_SHOW, autoOpenOutputView.getSelection());
             store.setValue(SQLPreferenceConstants.RESULT_SET_MAX_TABS_PER_QUERY, sizeWarningThresholdSpinner.getSelection());
+
+            for (var ref : presentationRefs) {
+                if (Platform.getBundle(ref.contributor.getBundleName()) != null) {
+                    store.setValue(ref.contributor.getSettingKey(), ref.button.getSelection());
+                    ref.contributor.getSwitcher().accept(ref.contributor.getId(), ref.button.getSelection());
+                }
+            }
         } catch (Exception e) {
             log.warn(e);
         }
@@ -230,6 +265,12 @@ public class PrefPageSQLEditor extends TargetPrefPage {
         store.setToDefault(SQLPreferenceConstants.RESULT_SET_REPLACE_CURRENT_TAB);
         store.setToDefault(SQLPreferenceConstants.RESULT_SET_ORIENTATION);
         store.setToDefault(SQLPreferenceConstants.OUTPUT_PANEL_AUTO_SHOW);
+
+        for (var ref : presentationRefs) {
+            if (Platform.getBundle(ref.contributor.getBundleName()) != null) {
+                store.setToDefault(ref.contributor.getSettingKey());
+            }
+        }
     }
 
     @Override
@@ -313,10 +354,30 @@ public class PrefPageSQLEditor extends TargetPrefPage {
                     ? store.getDefaultInt(SQLPreferenceConstants.RESULT_SET_MAX_TABS_PER_QUERY)
                     : store.getInt(SQLPreferenceConstants.RESULT_SET_MAX_TABS_PER_QUERY)
             );
+
+            for (var ref : presentationRefs) {
+                if (Platform.getBundle(ref.contributor.getBundleName()) != null) {
+                    ref.button.setSelection(
+                        useDefaults
+                            ? store.getDefaultBoolean(ref.contributor.getSettingKey())
+                            : store.getBoolean(ref.contributor.getSettingKey())
+                    );
+                }
+            }
+
         } catch (Exception e) {
             log.warn(e);
         }
     }
 
+    private static final class SQLEditorPresentationRef {
+        final ISQLPresentationContributor contributor;
+
+        private Button button;
+
+        public SQLEditorPresentationRef(@NotNull ISQLPresentationContributor contributor) {
+            this.contributor = contributor;
+        }
+    }
 
 }

@@ -184,6 +184,13 @@
                 namespace="org.jkiss.dbeaver.ui.editors.sql.util"
                 properties="canGenerate"
                 type="org.eclipse.ui.IWorkbenchPart"/>
+        <propertyTester
+            class="org.jkiss.dbeaver.ui.actions.GlobalPropertyTester"
+            id="org.jkiss.dbeaver.ui.editors.sql.SQLEditorTester"
+            namespace="org.jkiss.dbeaver.ui.editors.sql"
+            properties="hasPreference"
+            type="java.lang.Object"/>
+
     </extension>
 
     <extension point="org.eclipse.core.expressions.definitions">
