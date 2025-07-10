@@ -44,8 +44,8 @@ public class PostgreJSONValueHandler extends JDBCContentValueHandler {
     @Override
     public DBDContent getValueFromObject(@NotNull DBCSession session, @NotNull DBSTypedObject type, Object object, boolean copy, boolean validateValue) throws DBCException
     {
-        PostgreServerExtension postgreDataSource = PostgreUtils.getPostgreServerExtension(object);
-        boolean isPgObject = postgreDataSource != null && postgreDataSource.isPGObject(object);
+        PostgreServerExtension postgreServerExtension = PostgreUtils.getPostgreServerExtension(object);
+        boolean isPgObject = postgreServerExtension != null && postgreServerExtension.isPGObject(object);
         if (isPgObject) {
             object = PostgreUtils.extractPGObjectValue(object);
         }

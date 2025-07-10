@@ -71,9 +71,8 @@ public class PostgreArrayValueHandler extends JDBCArrayValueHandler {
             }
 
             String className = object.getClass().getName();
-            PostgreServerExtension
-                postgreDataSource = PostgreUtils.getPostgreServerExtension(object);
-            boolean isPgObject = postgreDataSource != null && postgreDataSource.isPGObject(object);
+            PostgreServerExtension postgreServerExtension = PostgreUtils.getPostgreServerExtension(object);
+            boolean isPgObject = postgreServerExtension != null && postgreServerExtension.isPGObject(object);
             if (object instanceof String ||
                 isPgObject ||
                 className.equals(PostgreConstants.PG_ARRAY_CLASS))

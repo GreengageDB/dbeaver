@@ -106,8 +106,8 @@ public class PostgreGeometryValueHandler extends JDBCAbstractValueHandler {
 
     @Override
     public Object getValueFromObject(@NotNull DBCSession session, @NotNull DBSTypedObject type, Object object, boolean copy, boolean validateValue) throws DBCException {
-        PostgreServerExtension postgreDataSource = PostgreUtils.getPostgreServerExtension(object);
-        boolean isPgObject = postgreDataSource != null && postgreDataSource.isPGObject(object);
+        PostgreServerExtension postgreServerExtension = PostgreUtils.getPostgreServerExtension(object);
+        boolean isPgObject = postgreServerExtension != null && postgreServerExtension.isPGObject(object);
         if (object == null) {
             return new DBGeometry();
         } else if (object instanceof DBGeometry) {

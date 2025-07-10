@@ -96,8 +96,8 @@ public class PostgreStructValueHandler extends JDBCStructValueHandler {
                 return copy ? ((JDBCCompositeStatic) object).cloneValue(session.getProgressMonitor()) : object;
             } else {
                 Object value;
-                PostgreServerExtension postgreDataSource = PostgreUtils.getPostgreServerExtension(object);
-                boolean isPgObject = postgreDataSource != null && postgreDataSource.isPGObject(object);
+                PostgreServerExtension postgreServerExtension = PostgreUtils.getPostgreServerExtension(object);
+                boolean isPgObject = postgreServerExtension != null && postgreServerExtension.isPGObject(object);
                 if (isPgObject) {
                     value = PostgreUtils.extractPGObjectValue(object);
                 } else {

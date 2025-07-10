@@ -125,9 +125,9 @@ public class PostgreUtils {
         if (pgObject == null) {
             return null;
         }
-        PostgreServerExtension postgreDataSource = getPostgreServerExtension(pgObject);
-        if (postgreDataSource != null) {
-            return !postgreDataSource.isPGObject(pgObject);
+        PostgreServerExtension postgreServerExtension = getPostgreServerExtension(pgObject);
+        if (postgreServerExtension == null || !postgreServerExtension.isPGObject(pgObject)) {
+            return pgObject;
         }
         try {
             return pgObject.getClass().getMethod("getValue").invoke(pgObject);
@@ -1050,8 +1050,9 @@ public class PostgreUtils {
                 break;
             }
         }
-        if (lastPos < 0)
+        if (lastPos < 0) {
             lastPos = url.length();
+        }
         return lastPos;
     }
 

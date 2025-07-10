@@ -1008,8 +1008,8 @@ public class PostgreDialect extends JDBCSQLDialect implements TPRuleProvider, SQ
     @NotNull
     @Override
     public String escapeScriptValue(DBSTypedObject attribute, @NotNull Object value, @NotNull String strValue) {
-        PostgreServerExtension postgreDataSource = PostgreUtils.getPostgreServerExtension(value);
-        boolean isPgObject = postgreDataSource != null && postgreDataSource.isPGObject(value);
+        PostgreServerExtension postgreServerExtension = PostgreUtils.getPostgreServerExtension(value);
+        boolean isPgObject = postgreServerExtension != null && postgreServerExtension.isPGObject(value);
         if (isPgObject
             || PostgreConstants.TYPE_BIT.equals(attribute.getTypeName())
             || PostgreConstants.TYPE_INTERVAL.equals(attribute.getTypeName())
