@@ -43,7 +43,7 @@ public class SQLPresentationRegistry  {
     private List<SQLPresentationDescriptor> presentations = new ArrayList<>();
     private final List<ISQLPresentationContributor> toggleablePresentations = new ArrayList<>();
 
-    public synchronized static SQLPresentationRegistry getInstance()
+    public static synchronized SQLPresentationRegistry getInstance()
     {
         if (instance == null) {
             instance = new SQLPresentationRegistry();
@@ -94,7 +94,7 @@ public class SQLPresentationRegistry  {
                 label,
                 tooltip,
                 ext.getContributor().getName(),
-                this::switchPresentation
+                this::togglePresentation
             );
             toggleablePresentations.add(contributor);
             if (prefs.getBoolean(settingKey)) {
@@ -137,7 +137,7 @@ public class SQLPresentationRegistry  {
         return new ArrayList<>(toggleablePresentations);
     }
 
-    public void switchPresentation(@NotNull String id, boolean enabled) {
+    public void togglePresentation(@NotNull String id, boolean enabled) {
 
         boolean alreadyPresent = presentations.stream()
             .anyMatch(p -> id.equals(p.getId()));
@@ -217,11 +217,10 @@ public class SQLPresentationRegistry  {
             }
 
             @Override
-            public BiConsumer<String, Boolean> getSwitcher() {
+            public BiConsumer<String, Boolean> togglePresentation() {
                 return switcher;
             }
         };
     }
-
 
 }

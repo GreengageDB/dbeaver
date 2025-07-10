@@ -94,5 +94,5 @@ public interface ISQLPresentationContributor {
      *
      * @return a {@link BiConsumer} accepting presentation ID and enabled state
      */
-    BiConsumer<String, Boolean> getSwitcher();
+    BiConsumer<String, Boolean> togglePresentation();
 }

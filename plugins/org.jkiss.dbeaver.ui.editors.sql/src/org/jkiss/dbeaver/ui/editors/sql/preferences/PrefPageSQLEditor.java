@@ -241,7 +241,7 @@ public class PrefPageSQLEditor extends TargetPrefPage {
             for (var ref : presentationRefs) {
                 if (Platform.getBundle(ref.contributor.getBundleName()) != null) {
                     store.setValue(ref.contributor.getSettingKey(), ref.button.getSelection());
-                    ref.contributor.getSwitcher().accept(ref.contributor.getId(), ref.button.getSelection());
+                    ref.contributor.togglePresentation().accept(ref.contributor.getId(), ref.button.getSelection());
                 }
             }
         } catch (Exception e) {
