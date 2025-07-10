@@ -125,7 +125,7 @@ public class PostgreUtils {
         if (pgObject == null) {
             return null;
         }
-        PostgreDataSource postgreDataSource = getPostgreDataSource(pgObject);
+        PostgreServerExtension postgreDataSource = getPostgreServerExtension(pgObject);
         if (postgreDataSource != null) {
             return !postgreDataSource.isPGObject(pgObject);
         }
@@ -1056,20 +1056,20 @@ public class PostgreUtils {
     }
 
     @Nullable
-    public static PostgreDataSource getPostgreDataSource(@Nullable Object object) {
+    public static PostgreServerExtension getPostgreServerExtension(@Nullable Object object) {
         if (object == null) {
             return null;
         }
 
-        if (object instanceof PostgreDataSource postgreDataSource) {
-            return postgreDataSource;
+        if (object instanceof PostgreServerExtension postgreServerExtension) {
+            return postgreServerExtension;
         }
 
         try {
             if (object instanceof DBSObject dbsObject) {
                 DBPDataSource dataSource = dbsObject.getDataSource();
                 if (dataSource instanceof PostgreDataSource postgreDataSource) {
-                    return postgreDataSource;
+                    return postgreDataSource.getServerType();
                 }
             }
         } catch (Exception ignored) {
@@ -1083,7 +1083,7 @@ public class PostgreUtils {
                 if (context != null) {
                     DBPDataSource dataSource = context.getDataSource();
                     if (dataSource instanceof PostgreDataSource postgreDataSource) {
-                        return postgreDataSource;
+                        return postgreDataSource.getServerType();
                     }
                 }
             }

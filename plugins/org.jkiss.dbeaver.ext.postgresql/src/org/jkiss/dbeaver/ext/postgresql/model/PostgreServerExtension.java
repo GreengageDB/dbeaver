@@ -18,6 +18,7 @@ package org.jkiss.dbeaver.ext.postgresql.model;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.ext.postgresql.PostgreConstants;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectLookupCache;
@@ -250,5 +251,13 @@ public interface PostgreServerExtension {
      * True if database can use pg_dump and pg_restore clients without errors.
      */
     boolean supportsNativeClient();
+
+    default boolean isPGObject(Object object) {
+        if (object == null) {
+            return false;
+        }
+        String className = object.getClass().getName();
+        return className.equals(PostgreConstants.PG_OBJECT_CLASS);
+    }
 
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2024 DBeaver Corp and others
+ * Copyright (C) 2010-2025 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBDatabaseException;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.ext.postgresql.PostgreConstants;
 import org.jkiss.dbeaver.ext.postgresql.model.*;
 import org.jkiss.dbeaver.ext.postgresql.model.impls.PostgreServerExtensionBase;
 import org.jkiss.dbeaver.model.DBPErrorAssistant;
@@ -491,5 +492,15 @@ public class PostgreServerRedshift extends PostgreServerExtensionBase implements
     @Override
     public boolean supportsNativeClient() {
         return false;
+    }
+
+
+    @Override
+    public boolean isPGObject(Object object) {
+        if (object == null) {
+            return false;
+        }
+        String className = object.getClass().getName();
+        return className.equals(PostgreConstants.RS_OBJECT_CLASS);
     }
 }

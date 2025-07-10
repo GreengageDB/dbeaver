@@ -22,10 +22,7 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.postgresql.PostgreUtils;
 import org.jkiss.dbeaver.ext.postgresql.PostgreValueParser;
-import org.jkiss.dbeaver.ext.postgresql.model.PostgreDataSource;
-import org.jkiss.dbeaver.ext.postgresql.model.PostgreDataType;
-import org.jkiss.dbeaver.ext.postgresql.model.PostgreDataTypeAttribute;
-import org.jkiss.dbeaver.ext.postgresql.model.PostgreTypeType;
+import org.jkiss.dbeaver.ext.postgresql.model.*;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.data.DBDComposite;
 import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
@@ -99,7 +96,7 @@ public class PostgreStructValueHandler extends JDBCStructValueHandler {
                 return copy ? ((JDBCCompositeStatic) object).cloneValue(session.getProgressMonitor()) : object;
             } else {
                 Object value;
-                PostgreDataSource postgreDataSource = PostgreUtils.getPostgreDataSource(object);
+                PostgreServerExtension postgreDataSource = PostgreUtils.getPostgreServerExtension(object);
                 boolean isPgObject = postgreDataSource != null && postgreDataSource.isPGObject(object);
                 if (isPgObject) {
                     value = PostgreUtils.extractPGObjectValue(object);

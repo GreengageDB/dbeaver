@@ -21,7 +21,7 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.data.gis.handlers.WKGUtils;
 import org.jkiss.dbeaver.ext.postgresql.PostgreConstants;
 import org.jkiss.dbeaver.ext.postgresql.PostgreUtils;
-import org.jkiss.dbeaver.ext.postgresql.model.PostgreDataSource;
+import org.jkiss.dbeaver.ext.postgresql.model.PostgreServerExtension;
 import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
 import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
 import org.jkiss.dbeaver.model.exec.DBCException;
@@ -106,7 +106,7 @@ public class PostgreGeometryValueHandler extends JDBCAbstractValueHandler {
 
     @Override
     public Object getValueFromObject(@NotNull DBCSession session, @NotNull DBSTypedObject type, Object object, boolean copy, boolean validateValue) throws DBCException {
-        PostgreDataSource postgreDataSource = PostgreUtils.getPostgreDataSource(object);
+        PostgreServerExtension postgreDataSource = PostgreUtils.getPostgreServerExtension(object);
         boolean isPgObject = postgreDataSource != null && postgreDataSource.isPGObject(object);
         if (object == null) {
             return new DBGeometry();
