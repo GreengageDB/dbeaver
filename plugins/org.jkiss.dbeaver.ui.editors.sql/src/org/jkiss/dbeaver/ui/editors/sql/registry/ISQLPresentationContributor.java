@@ -90,9 +90,10 @@ public interface ISQLPresentationContributor {
     String getTooltip();
 
     /**
-     * Returns a switcher function that is called when the presentation is enabled or disabled.
+     * Enables or disables the presentation with the given ID.
      *
-     * @return a {@link BiConsumer} accepting presentation ID and enabled state
+     * @param id    the presentation ID
+     * @param state {@code true} to enable, {@code false} to disable
      */
-    BiConsumer<String, Boolean> togglePresentation();
+    void togglePresentation(String id, boolean state);
 }

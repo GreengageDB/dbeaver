@@ -187,7 +187,7 @@ public class SQLPresentationRegistry  {
         @NotNull String label,
         @NotNull String tooltip,
         @NotNull String bandleName,
-        @NotNull BiConsumer<String, Boolean> switcher) {
+        @NotNull BiConsumer<String, Boolean> toggler) {
 
         return new ISQLPresentationContributor() {
 
@@ -217,8 +217,8 @@ public class SQLPresentationRegistry  {
             }
 
             @Override
-            public BiConsumer<String, Boolean> togglePresentation() {
-                return switcher;
+            public void togglePresentation(String id, boolean state) {
+                toggler.accept(id, state);
             }
         };
     }
