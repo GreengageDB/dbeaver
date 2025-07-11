@@ -105,14 +105,18 @@ public class DriverLibraryBundle extends DriverLibraryAbstract {
 
                 if (Files.isRegularFile(localFilePath)) {
                     return localFilePath;
-                } else if (Files.isDirectory(localFilePath) && Platform.inDevelopmentMode()) {
-                    Path targetClassesPath = localFilePath.resolve("target").resolve("classes");
-                    if (Files.exists(targetClassesPath)) {
-                        return targetClassesPath;
-                    } else {
-                        return localFilePath.resolve("lib");
+                } else if (Files.isDirectory(localFilePath)) {
+                    Path compiledClassesDir = localFilePath.resolve("target").resolve("classes");
+                    Path libraryDir = localFilePath.resolve("lib");
+
+                    if (Platform.inDevelopmentMode() && Files.exists(compiledClassesDir)) {
+                        return compiledClassesDir;
+                    } else if (Files.exists(libraryDir)) {
+                        return libraryDir;
                     }
                 }
+
+                log.error("Bundle file not found: " + localFilePath);
             }
         } catch (Exception e) {
             log.debug(e);
