@@ -412,6 +412,9 @@ public class SQLEditorMessages extends NLS {
     
     public static String sql_editor_outline_no_elements_label;
     public static String sql_editor_outline_query_analysis_disabled_label;
+    public static String update_conflict_message;
+    public static String update_conflict_message_revert;
+    public static String update_conflict_message_overwrite;
 
     static {
         // initialize resource bundle
