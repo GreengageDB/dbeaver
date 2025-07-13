@@ -255,6 +255,8 @@ public class SQLEditorMessages extends NLS {
     public static String pref_page_sql_completion_label_mark_occurrences_for_selections_tip;
     public static String pref_page_code_editor_label_advanced_highlighting_enabled;
     public static String pref_page_code_editor_label_advanced_highlighting_enabled_tip;
+    public static String pref_page_code_editor_label_validate_functions_enabled;
+    public static String pref_page_code_editor_label_validate_functions_enabled_tip;
     public static String pref_page_code_editor_label_read_metadata_enabled;
     public static String pref_page_code_editor_label_read_metadata_enabled_tip;
 

@@ -20,9 +20,10 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.sql.SQLDialect;
-import org.jkiss.dbeaver.model.sql.semantics.SQLQueryQualifiedName;
+import org.jkiss.dbeaver.model.sql.semantics.SQLQueryComplexName;
 import org.jkiss.dbeaver.model.sql.semantics.SQLQuerySymbol;
 import org.jkiss.dbeaver.model.sql.semantics.SQLQuerySymbolEntry;
+import org.jkiss.dbeaver.model.sql.semantics.model.SQLQueryMemberAccessEntry;
 import org.jkiss.dbeaver.model.sql.semantics.model.select.SQLQueryRowsSourceModel;
 import org.jkiss.dbeaver.model.stm.STMUtils;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
@@ -38,42 +39,27 @@ public class SQLQueryRowsSourceContext {
 
     private static final Log log = Log.getLog(SQLQueryRowsSourceContext.class);
 
-    /**
-     * Describes the result of the query source resolution for the specified identifier name
-     */
-    public static class KnownRowsSourceInfo extends SourceResolutionResult {
-
-        @Nullable
-        public final SQLQueryComplexName referenceName;
-
-        protected KnownRowsSourceInfo(
-            @NotNull SQLQueryRowsSourceModel source,
-            @Nullable SQLQueryComplexName referenceName,
-            @Nullable DBSEntity tableOrNull,
-            @Nullable SQLQuerySymbol aliasOrNull
-        ) {
-            super(source, tableOrNull, aliasOrNull);
-            this.referenceName = referenceName;
-        }
-    }
-
     @NotNull
     private final SQLQueryConnectionContext connectionInfo;
 
     private final boolean hasUnresolvedSource;
 
     @NotNull
-    private final Map<SQLQueryComplexName, KnownRowsSourceInfo> rowsSources;
+    private final Map<SQLQueryComplexName, SourceResolutionResult> rowsSources;
 
     @NotNull
-    private final Map<String, KnownRowsSourceInfo> dynamicTableSources;
+    private final Map<String, SourceResolutionResult> dynamicTableSources;
 
     @NotNull
-    private final Map<String, KnownRowsSourceInfo> sourcesByLoweredAlias;
+    private final Map<String, SourceResolutionResult> sourcesByLoweredAlias;
 
     public SQLQueryRowsSourceContext(@NotNull SQLQueryConnectionContext connectionInfo) {
+        this(connectionInfo, false);
+    }
+
+    private SQLQueryRowsSourceContext(@NotNull SQLQueryConnectionContext connectionInfo, boolean hasUnresolvedSource) {
         this.connectionInfo = connectionInfo;
-        this.hasUnresolvedSource = false;
+        this.hasUnresolvedSource = hasUnresolvedSource;
         this.rowsSources = Collections.emptyMap();
         this.dynamicTableSources = Collections.emptyMap();
         this.sourcesByLoweredAlias = Collections.emptyMap();
@@ -82,9 +68,9 @@ public class SQLQueryRowsSourceContext {
     private SQLQueryRowsSourceContext(
         @NotNull SQLQueryConnectionContext connectionInfo,
         boolean hasUnresolvedSource,
-        @NotNull Map<SQLQueryComplexName, KnownRowsSourceInfo> rowsSources,
-        @NotNull Map<String, KnownRowsSourceInfo> dynamicTableSources,
-        @NotNull Map<String, KnownRowsSourceInfo> sourcesByLoweredAlias
+        @NotNull Map<SQLQueryComplexName, SourceResolutionResult> rowsSources,
+        @NotNull Map<String, SourceResolutionResult> dynamicTableSources,
+        @NotNull Map<String, SourceResolutionResult> sourcesByLoweredAlias
     ) {
         this.connectionInfo = connectionInfo;
         this.hasUnresolvedSource = hasUnresolvedSource;
@@ -108,7 +94,15 @@ public class SQLQueryRowsSourceContext {
      */
     @NotNull
     public final SQLQueryRowsSourceContext reset() {
-        return new SQLQueryRowsSourceContext(this.connectionInfo);
+        return new SQLQueryRowsSourceContext(this.connectionInfo, false);
+    }
+
+    /**
+     * Prepare new semantic context by hiding all the involved rows sources such as subqueries and table references and marking this context as having unresolved rowset references
+     */
+    @NotNull
+    public final SQLQueryRowsSourceContext resetAsUnresolved() {
+        return new SQLQueryRowsSourceContext(this.connectionInfo, true);
     }
 
     /**
@@ -122,8 +116,8 @@ public class SQLQueryRowsSourceContext {
      * Find semantic model item responsible for the representation of the dynamic table data like CTE being treated as an extra table
      */
     @Nullable
-    public KnownRowsSourceInfo findDynamicRowsSource(@NotNull SQLQueryComplexName name) {
-        return name.getParts().size() == 1 ? this.dynamicTableSources.get(name.getParts().getFirst().toLowerCase()) : null;
+    public SourceResolutionResult findDynamicRowsSource(@NotNull SQLQuerySymbolEntry name) {
+        return this.dynamicTableSources.get(name.getName().toLowerCase());
     }
 
     /**
@@ -133,38 +127,56 @@ public class SQLQueryRowsSourceContext {
      * @implNote TODO consider ambiguous table names
      */
     @Nullable
-    public KnownRowsSourceInfo findReferencedSource(@NotNull SQLQueryComplexName name) {
-        KnownRowsSourceInfo result = null;
+    public SourceResolutionInfo findReferencedSource(@NotNull SQLQueryComplexName name) {
+        if (!name.parts.isEmpty()) {
+            SQLQuerySymbolEntry entry = name.parts.getFirst();
+            SourceResolutionResult result = this.findSourceByAlias(entry.getName());
+            if (result != null) {
+                SQLQueryMemberAccessEntry endingPeriod;
+                if (name.parts.size() > 1 && name.parts.get(1) != null) {
+                    endingPeriod = name.parts.get(1).getMemberAccess();
+                } else if (name.parts.size() == 2 && name.parts.get(1) == null) {
+                    endingPeriod = name.endingPeriodNode;
+                } else {
+                    endingPeriod = null;
+                }
+                SQLQueryComplexName key = new SQLQueryComplexName(entry.getSyntaxNode(), List.of(entry), 0, endingPeriod);
+                return new SourceResolutionInfo(result, key);
+            }
+        }
+
         SQLQueryComplexName namePart = name;
         while (namePart != null) {
-            KnownRowsSourceInfo entry = this.rowsSources.get(namePart);
-            if (entry != null) {
-                result = entry;
-                break;
+            SourceResolutionResult result = this.rowsSources.get(namePart);
+            if (result != null) {
+                return new SourceResolutionInfo(result, namePart);
             } else {
                 namePart = namePart.trimEnd();
             }
         }
-        if (result == null && name.getParts().size() == 1) {
-            result = this.findSourceByAlias(name.getParts().get(0));
-        }
-        return result;
+        return null;
+    }
+
+    public record SourceResolutionInfo(
+        @NotNull SourceResolutionResult target,
+        @NotNull SQLQueryComplexName key
+    ) {
     }
 
     /**
      * Get the resolved query source by its name
      */
     @Nullable
-    public KnownRowsSourceInfo findReferencedSourceExact(@NotNull SQLQueryComplexName name) {
-        KnownRowsSourceInfo result = this.rowsSources.get(name);
-        if (result == null && name.getParts().size() == 1) {
-            result = this.findSourceByAlias(name.getParts().get(0));
+    public SourceResolutionResult findReferencedSourceExact(@NotNull SQLQueryComplexName name) {
+        SourceResolutionResult result = this.rowsSources.get(name);
+        if (result == null && name.stringParts.size() == 1 && name.invalidPartsCount == 0) {
+            result = this.findSourceByAlias(name.stringParts.getFirst());
         }
         return result;
     }
 
     @Nullable
-    private KnownRowsSourceInfo findSourceByAlias(@NotNull String aliasName) {
+    private SourceResolutionResult findSourceByAlias(@NotNull String aliasName) {
         return this.sourcesByLoweredAlias.get(aliasName.toLowerCase());
     }
 
@@ -198,7 +210,7 @@ public class SQLQueryRowsSourceContext {
         return this.setRowsSources(new HashMap<>() {
             {
                 putAll(SQLQueryRowsSourceContext.this.rowsSources);
-                put(name, new KnownRowsSourceInfo(source, name, tableOrNull, null));
+                put(name, new SourceResolutionResult(source, name, tableOrNull, null));
             }
         }, this.sourcesByLoweredAlias);
     }
@@ -207,21 +219,18 @@ public class SQLQueryRowsSourceContext {
      * Associate alias with the resolved query source
      */
     @NotNull
-    public final SQLQueryRowsSourceContext appendAlias(@NotNull SQLQueryRowsSourceModel source, @NotNull SQLQuerySymbol alias) {
-        KnownRowsSourceInfo entry = this.rowsSources.values().stream().filter(s -> s.source == source).findFirst().orElse(null);
-        KnownRowsSourceInfo newEntry;
-        if (entry != null) {
-            newEntry = new KnownRowsSourceInfo(entry.source, entry.referenceName, entry.tableOrNull, alias);
-        } else {
-            newEntry = new KnownRowsSourceInfo(source, null, null, alias);
-        }
+    public final SQLQueryRowsSourceContext appendAlias(@NotNull SQLQueryRowsSourceModel source, @NotNull SQLQuerySymbolEntry alias) {
+        SourceResolutionResult oldEntry = this.rowsSources.values().stream().filter(s -> s.source == source).findFirst().orElse(null);
+        DBSEntity oldEntryTable = oldEntry == null ? null : oldEntry.tableOrNull;
+        SourceResolutionResult newEntry = new SourceResolutionResult(source, null, oldEntryTable, alias.getSymbol());
+
         return this.setRowsSources(new HashMap<>() {
             {
                 putAll(SQLQueryRowsSourceContext.this.rowsSources);
-                if (entry != null) {
-                    put(entry.referenceName, newEntry);
+                if (oldEntry != null) {
+                    remove(oldEntry.referenceName, oldEntry);
                 }
-                put(new SQLQueryComplexName(alias.getName()), newEntry);
+                put(new SQLQueryComplexName(alias.getSyntaxNode(), List.of(alias), 0, null), newEntry);
             }
         }, new HashMap<>() {
             {
@@ -243,10 +252,8 @@ public class SQLQueryRowsSourceContext {
                     SQLQuerySymbolEntry alias = entry.getFirst();
                     if (alias != null) {
                         SQLQueryRowsSourceModel sourceModel = entry.getSecond();
-                        SQLQueryComplexName name = new SQLQueryComplexName(new SQLQueryQualifiedName(
-                            alias.getSyntaxNode(), Collections.emptyList(), alias, 0, null
-                        ));
-                        put(alias.getName().toLowerCase(), new KnownRowsSourceInfo(sourceModel, name, null, alias.getSymbol()));
+                        SQLQueryComplexName name = new SQLQueryComplexName(alias.getSyntaxNode(), List.of(alias), 0, null);
+                        put(alias.getName().toLowerCase(), new SourceResolutionResult(sourceModel, name, null, alias.getSymbol()));
                     }
                 }
             }
@@ -263,6 +270,7 @@ public class SQLQueryRowsSourceContext {
     /**
      * Create empty data context
      */
+    @NotNull
     public SQLQueryRowsDataContext makeEmptyTuple() {
         return new SQLQueryRowsDataContext(
             this,
@@ -274,6 +282,7 @@ public class SQLQueryRowsSourceContext {
     /**
      * Create row tuple model acting as a context for column references resolution
      */
+    @NotNull
     public SQLQueryRowsDataContext makeTuple(
         @NotNull List<SQLQueryResultColumn> columns,
         @NotNull List<SQLQueryResultPseudoColumn> pseudoColumns
@@ -284,6 +293,7 @@ public class SQLQueryRowsSourceContext {
     /**
      * Create row tuple model acting as a context for column references resolution
      */
+    @NotNull
     public final SQLQueryRowsDataContext makeTuple(
         @Nullable SQLQueryRowsSourceModel source,
         @NotNull List<SQLQueryResultColumn> columns,
@@ -292,8 +302,31 @@ public class SQLQueryRowsSourceContext {
         // TODO: review pseudoattributes behavior in DDL expressions (not handling for now)
         List<SQLQueryResultPseudoColumn> allPseudoColumns = source == null
             ? pseudoColumns
-            : STMUtils.combineLists(this.connectionInfo.rowsetPseudoColumnsProvider.apply(source), pseudoColumns);
+            : STMUtils.combineLists(this.connectionInfo.obtainRowsetPseudoColumns(source), pseudoColumns);
         return new SQLQueryRowsDataContext(this, columns, allPseudoColumns);
+    }
+
+    /**
+     * Create row tuple model acting as a context for column references resolution
+     */
+    @NotNull
+    public final SQLQueryRowsDataContext makeTuple(
+        @Nullable SQLQueryRowsSourceModel source,
+        @NotNull Pair<List<SQLQueryResultColumn>, List<SQLQueryResultPseudoColumn>> columnsAndPseudoColumns
+    ) {
+        return this.makeTuple(source, columnsAndPseudoColumns.getFirst(), columnsAndPseudoColumns.getSecond());
+    }
+
+    /**
+     * Create row tuple model acting as a context for column references resolution
+     */
+    @NotNull
+    public SQLQueryRowsDataContext makeJoinTuple(
+        @NotNull List<SQLQueryResultColumn> columns,
+        @NotNull List<SQLQueryResultPseudoColumn> pseudoColumns,
+        @NotNull SQLQueryRowsDataContext.JoinInfo joinInfo
+    ) {
+        return new SQLQueryRowsDataContext(this, columns, pseudoColumns, joinInfo);
     }
 
     /**
@@ -340,8 +373,8 @@ public class SQLQueryRowsSourceContext {
 
     @NotNull
     private SQLQueryRowsSourceContext setRowsSources(
-        @NotNull Map<SQLQueryComplexName, KnownRowsSourceInfo> rowsSources,
-        @NotNull Map<String, KnownRowsSourceInfo> sourcesByLoweredAlias
+        @NotNull Map<SQLQueryComplexName, SourceResolutionResult> rowsSources,
+        @NotNull Map<String, SourceResolutionResult> sourcesByLoweredAlias
     ) {
         return new SQLQueryRowsSourceContext(
             this.connectionInfo,
@@ -353,7 +386,7 @@ public class SQLQueryRowsSourceContext {
     }
 
     @NotNull
-    private SQLQueryRowsSourceContext setDynamicRowsSources(@NotNull Map<String, KnownRowsSourceInfo> dynamicTableSources) {
+    private SQLQueryRowsSourceContext setDynamicRowsSources(@NotNull Map<String, SourceResolutionResult> dynamicTableSources) {
         return new SQLQueryRowsSourceContext(
             this.connectionInfo,
             this.hasUnresolvedSource,

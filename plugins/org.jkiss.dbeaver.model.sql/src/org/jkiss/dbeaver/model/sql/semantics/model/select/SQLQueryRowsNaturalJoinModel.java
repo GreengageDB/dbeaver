@@ -21,12 +21,12 @@ import org.antlr.v4.runtime.misc.Interval;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.sql.semantics.*;
-import org.jkiss.dbeaver.model.sql.semantics.context.SQLQueryDataContext;
 import org.jkiss.dbeaver.model.sql.semantics.context.SQLQueryResultColumn;
-import org.jkiss.dbeaver.model.sql.semantics.model.SQLQueryNodeModelVisitor;
-import org.jkiss.dbeaver.model.sql.semantics.model.expressions.SQLQueryValueExpression;
 import org.jkiss.dbeaver.model.sql.semantics.context.SQLQueryRowsDataContext;
 import org.jkiss.dbeaver.model.sql.semantics.context.SQLQueryRowsSourceContext;
+import org.jkiss.dbeaver.model.sql.semantics.model.SQLQueryNodeModel;
+import org.jkiss.dbeaver.model.sql.semantics.model.SQLQueryNodeModelVisitor;
+import org.jkiss.dbeaver.model.sql.semantics.model.expressions.SQLQueryValueExpression;
 import org.jkiss.dbeaver.model.stm.STMTreeNode;
 
 import java.util.List;
@@ -34,7 +34,9 @@ import java.util.List;
 /**
  * Describes natural join clause
  */
-public class SQLQueryRowsNaturalJoinModel extends SQLQueryRowsSetOperationModel {
+public class SQLQueryRowsNaturalJoinModel extends SQLQueryRowsSetOperationModel
+    implements SQLQueryNodeModel.NodeSubtreeTraverseControl<SQLQueryRowsSourceModel, SQLQueryRowsDataContext> {
+
     @Nullable
     private final SQLQueryValueExpression condition;
     @Nullable
@@ -94,62 +96,33 @@ public class SQLQueryRowsNaturalJoinModel extends SQLQueryRowsSetOperationModel 
 
     @NotNull
     @Override
-    protected SQLQueryDataContext propagateContextImpl(
-        @NotNull SQLQueryDataContext context,
-        @NotNull SQLQueryRecognitionContext statistics
-    ) {
-        SQLQueryDataContext left = this.left.propagateContext(context, statistics);
-        SQLQueryDataContext right = this.right.propagateContext(this.isLateral ? left : context, statistics);
-        SQLQueryDataContext combinedContext = left.combineForJoin(right);
-
-        if (this.columnsToJoin != null) {
-            var columnNameOrigin = new SQLQuerySymbolOrigin.ColumnNameFromContext(combinedContext);
-            for (SQLQuerySymbolEntry column : columnsToJoin) {
-                if (column.isNotClassified()) {
-                    SQLQuerySymbol symbol = column.getSymbol();
-                    SQLQueryResultColumn leftColumnDef = left.resolveColumn(statistics.getMonitor(), column.getName());
-                    SQLQueryResultColumn rightColumnDef = right.resolveColumn(statistics.getMonitor(), column.getName());
-                    if (leftColumnDef != null && rightColumnDef != null) {
-                        symbol.setDefinition(column); // TODO multiple definitions per symbol
-                        symbol.setSymbolClass(SQLQuerySymbolClass.COLUMN);
-                    } else {
-                        if (leftColumnDef == null) {
-                            statistics.appendError(column, "Column " + column.getName() + " not found on the left of join");
-                        } else {
-                            statistics.appendError(column, "Column " + column.getName() + " not found on the right of join");
-                        }
-                        symbol.setSymbolClass(SQLQuerySymbolClass.ERROR);
-                    }
-                    column.setOrigin(columnNameOrigin);
-                }
-            }
-            this.conditionScope.setSymbolsOrigin(columnNameOrigin);
-        } else {
-            var conditionOrigin = new SQLQuerySymbolOrigin.ValueRefFromContext(combinedContext);
-            this.setTailOrigin(conditionOrigin);
-
-            if (this.condition != null) {
-                this.condition.propagateContext(combinedContext, statistics);
-                this.conditionScope.setSymbolsOrigin(conditionOrigin);
-            }
-        }
-
-        return combinedContext;
-    }
-
-    @NotNull
-    @Override
     protected SQLQueryRowsSourceContext resolveRowSourcesImpl(
         @NotNull SQLQueryRowsSourceContext context,
         @NotNull SQLQueryRecognitionContext statistics
     ) {
-        context = this.left.resolveRowSources(context, statistics).combine(this.right.resolveRowSources(context, statistics));
+        SQLQueryRowsSourceContext left = this.left.resolveRowSources(context, statistics);
+        SQLQueryRowsSourceContext right = this.right.resolveRowSources(this.isLateral ? left : context, statistics);
+        SQLQueryRowsSourceContext result = left.combine(right);
 
         if (this.condition != null) {
-            this.condition.resolveRowSources(context, statistics);
+            this.condition.resolveRowSources(result, statistics);
         }
 
-        return context;
+        return result;
+    }
+
+    @Override
+    public boolean overridesContextForChild(@NotNull SQLQueryRowsSourceModel child) {
+        return this.isLateral && child == this.right;
+    }
+
+    @Nullable
+    @Override
+    public SQLQueryRowsDataContext getContextForChild(
+        @NotNull SQLQueryRowsSourceModel child,
+        @Nullable SQLQueryRowsDataContext defaultContext
+    ) {
+        return this.isLateral && child == this.right ? this.left.getRowsDataContext() : defaultContext;
     }
 
     @NotNull
@@ -158,7 +131,7 @@ public class SQLQueryRowsNaturalJoinModel extends SQLQueryRowsSetOperationModel 
         @NotNull SQLQueryRowsDataContext context,
         @NotNull SQLQueryRecognitionContext statistics
     ) {
-        SQLQueryRowsDataContext x = this.left.getRowsDataContext().combine(this.right.getRowsDataContext());
+        SQLQueryRowsDataContext x = this.left.getRowsDataContext().combineForJoin(this.right.getRowsDataContext());
         SQLQueryRowsDataContext combinedContext = this.getRowsSources().makeTuple(this, x.getColumnsList(), x.getPseudoColumnsList());
 
         if (this.columnsToJoin != null) {

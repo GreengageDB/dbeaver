@@ -38,7 +38,7 @@ public class SQLQueryRowsDataContext {
 
     // TODO introduce class ResultColumnInfo extends SQLQueryResultColumn having reference for KnownRowsSourceInfo
 
-    private static final Log log = Log.getLog(SQLQueryResultTupleContext.class);
+    private static final Log log = Log.getLog(SQLQueryRowsDataContext.class);
 
     @NotNull
     private final SQLQueryRowsSourceContext rowsSources;
@@ -48,16 +48,31 @@ public class SQLQueryRowsDataContext {
     private final Set<DBSEntity> realSources;
     @NotNull
     private final List<SQLQueryResultPseudoColumn> pseudoColumns;
+    @Nullable
+    private final JoinInfo  joinInfo;
 
     public SQLQueryRowsDataContext(
         @NotNull SQLQueryRowsSourceContext rowsSources,
         @NotNull List<SQLQueryResultColumn> columns,
         @NotNull List<SQLQueryResultPseudoColumn> pseudoColumns
     ) {
+        this(rowsSources, columns, pseudoColumns, null);
+    }
+
+    public SQLQueryRowsDataContext(
+        @NotNull SQLQueryRowsSourceContext rowsSources,
+        @NotNull List<SQLQueryResultColumn> columns,
+        @NotNull List<SQLQueryResultPseudoColumn> pseudoColumns,
+        @Nullable JoinInfo joinInfo
+    ) {
         this.rowsSources = rowsSources;
         this.columns = columns;
         this.realSources = columns.stream().map(c -> c.realSource).filter(Objects::nonNull).collect(Collectors.toSet());
         this.pseudoColumns = pseudoColumns;
+        this.joinInfo = joinInfo;
+    }
+
+    public record JoinInfo(SQLQueryRowsDataContext left, SQLQueryRowsDataContext right) {
     }
 
     @NotNull
@@ -78,6 +93,11 @@ public class SQLQueryRowsDataContext {
     @NotNull
     public List<SQLQueryResultPseudoColumn> getPseudoColumnsList() {
         return this.pseudoColumns;
+    }
+
+    @Nullable
+    public JoinInfo getJoinInfo() {
+        return this.joinInfo;
     }
 
     /**
@@ -138,12 +158,24 @@ public class SQLQueryRowsDataContext {
     /**
      * Combine information about query sources (tables, subqueries, etc.) and columns used in the query
      */
-    public SQLQueryRowsDataContext combine(SQLQueryRowsDataContext other) {
+    @NotNull
+    public SQLQueryRowsDataContext combine(@NotNull SQLQueryRowsDataContext other) {
         SQLQueryRowsSourceContext combinedSources = this.rowsSources.combine(other.rowsSources);
         return combinedSources.makeTuple(
             STMUtils.combineLists(this.getColumnsList(), other.getColumnsList()),
             // TODO consider ambiguity and/or propagation policy of pseudo-columns here
             STMUtils.combineLists(this.getPseudoColumnsList(), other.getPseudoColumnsList())
+        );
+    }
+
+    @NotNull
+    public SQLQueryRowsDataContext combineForJoin(@NotNull SQLQueryRowsDataContext other) {
+        SQLQueryRowsSourceContext combinedSources = this.rowsSources.combine(other.rowsSources);
+        return combinedSources.makeJoinTuple(
+            STMUtils.combineLists(this.getColumnsList(), other.getColumnsList()),
+            // TODO consider ambiguity and/or propagation policy of pseudo-columns here
+            STMUtils.combineLists(this.getPseudoColumnsList(), other.getPseudoColumnsList()),
+            new JoinInfo(this, other)
         );
     }
 }

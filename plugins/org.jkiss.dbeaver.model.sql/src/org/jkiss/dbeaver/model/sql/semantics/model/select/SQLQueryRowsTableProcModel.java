@@ -17,6 +17,7 @@
 package org.jkiss.dbeaver.model.sql.semantics.model.select;
 
 import org.jkiss.code.NotNull;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.sql.semantics.SQLQueryRecognitionContext;
 import org.jkiss.dbeaver.model.sql.semantics.SQLQuerySymbol;
 import org.jkiss.dbeaver.model.sql.semantics.context.SQLQueryExprType;
@@ -24,34 +25,24 @@ import org.jkiss.dbeaver.model.sql.semantics.context.SQLQueryResultColumn;
 import org.jkiss.dbeaver.model.sql.semantics.context.SQLQueryRowsDataContext;
 import org.jkiss.dbeaver.model.sql.semantics.context.SQLQueryRowsSourceContext;
 import org.jkiss.dbeaver.model.sql.semantics.model.SQLQueryNodeModelVisitor;
-import org.jkiss.dbeaver.model.sql.semantics.model.expressions.SQLQueryValueExpression;
-import org.jkiss.dbeaver.model.stm.STMTreeNode;
+import org.jkiss.dbeaver.model.sql.semantics.model.expressions.SQLQueryValueFunctionExpression;
 
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
-/**
- * Describes a table constructed by VALUES clause
- */
-public class SQLQueryRowsTableValueModel extends SQLQueryRowsSourceModel {
+public class SQLQueryRowsTableProcModel extends SQLQueryRowsSourceModel {
     @NotNull
-    private final List<List<SQLQueryValueExpression>> rows;
-    private final boolean isIncomplete;
-    
-    public SQLQueryRowsTableValueModel(
-        @NotNull STMTreeNode syntaxNode,
-        @NotNull List<List<SQLQueryValueExpression>> rows,
-        boolean isIncomplete
-    ) {
-        super(syntaxNode);
-        this.rows = rows;
-        this.isIncomplete = isIncomplete;
+    private final SQLQueryValueFunctionExpression callExpr;
+
+    public SQLQueryRowsTableProcModel(@NotNull SQLQueryValueFunctionExpression callExpr) {
+        super(callExpr.getSyntaxNode());
+        this.callExpr = callExpr;
     }
 
     @NotNull
-    public List<SQLQueryValueExpression> getValues() {
-        return this.rows.isEmpty() ? Collections.emptyList() : this.rows.getFirst();
+    public SQLQueryValueFunctionExpression getFunctionExpression() {
+        return this.callExpr;
     }
 
     @Override
@@ -59,6 +50,7 @@ public class SQLQueryRowsTableValueModel extends SQLQueryRowsSourceModel {
         @NotNull SQLQueryRowsSourceContext context,
         @NotNull SQLQueryRecognitionContext statistics
     ) {
+        this.callExpr.resolveRowSources(context, statistics);
         return context.reset();
     }
 
@@ -67,34 +59,40 @@ public class SQLQueryRowsTableValueModel extends SQLQueryRowsSourceModel {
         @NotNull SQLQueryRowsDataContext context,
         @NotNull SQLQueryRecognitionContext statistics
     ) {
+        this.callExpr.resolveValueRelations(context, statistics);
+        SQLQueryExprType procResult = this.callExpr.getValueType();
         LinkedList<SQLQueryResultColumn> resultColumns = new LinkedList<>();
-        SQLQueryRowsDataContext emptyTuple = this.getRowsSources().makeEmptyTuple();
-        int rowIndex = 0;
-        for (List<SQLQueryValueExpression> row : this.rows) {
-            for (SQLQueryValueExpression value : row) {
-                value.resolveRowSources(this.getRowsSources(), statistics);
-                value.resolveValueRelations(emptyTuple, statistics);
-                if (rowIndex == 0) {
-                    resultColumns.addLast(
-                        new SQLQueryResultColumn(
-                            resultColumns.size(),
-                            new SQLQuerySymbol("?"),
-                            this,
-                            null,
-                            null,
-                            SQLQueryExprType.UNKNOWN
-                        )
+        if (procResult != SQLQueryExprType.UNKNOWN) {
+            try {
+                SQLQueryExprType rowType = procResult.findIndexedItemType(statistics.getMonitor(), 1, null);
+                if (rowType != null) {
+                    for (SQLQueryExprType.SQLQueryExprTypeMemberInfo field : rowType.getNamedMembers(statistics.getMonitor())) {
+                        resultColumns.addLast(
+                            new SQLQueryResultColumn(
+                                resultColumns.size(),
+                                new SQLQuerySymbol(field.name()),
+                                this,
+                                null,
+                                field.attribute(),
+                                field.type()
+                            )
+                        );
+                    }
+                } else {
+                    statistics.appendError(
+                        this.getSyntaxNode(),
+                        this.callExpr.getProcName().getNameString() + " is not a rowset-producing procedure"
                     );
                 }
+            } catch (DBException e) {
+                throw new RuntimeException(e);
             }
-            rowIndex++;
         }
-
         return this.getRowsSources().makeTuple(this, List.copyOf(resultColumns), Collections.emptyList());
     }
 
     @Override
     protected <R, T> R applyImpl(@NotNull SQLQueryNodeModelVisitor<T, R> visitor, @NotNull T arg) {
-        return visitor.visitRowsTableValue(this, arg);
+        return visitor.visitRowsTableProc(this, arg);
     }
 }

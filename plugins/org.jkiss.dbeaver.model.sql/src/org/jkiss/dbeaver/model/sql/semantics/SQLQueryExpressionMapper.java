@@ -89,7 +89,6 @@ public class SQLQueryExpressionMapper extends SQLQueryTreeMapper<SQLQueryRowsSou
 
                 STMTreeNode withNode = n.findFirstChildOfName(STMKnownRuleNames.withClause);
                 if (withNode != null) {
-                    boolean isRecursive = withNode.findFirstChildOfName(STMKnownRuleNames.RECURSIVE_TERM) != null;
                     List<SQLQueryRowsCteSubqueryModel> cteSubqueries = new ArrayList<>();
 
                     STMTreeNode cteListNode = withNode.findLastChildOfName(STMKnownRuleNames.cteList);
@@ -128,9 +127,9 @@ public class SQLQueryExpressionMapper extends SQLQueryTreeMapper<SQLQueryRowsSou
                             ));
                         }
                     }
-                    return new SQLQueryRowsCteModel(n, isRecursive, cteSubqueries, resultQuery);
+                    return new SQLQueryRowsCteModel(n, cteSubqueries, resultQuery);
                 } else {
-                    return new SQLQueryRowsCteModel(n, false, Collections.emptyList(), resultQuery);
+                    return new SQLQueryRowsCteModel(n, Collections.emptyList(), resultQuery);
                 }
             }
         },
@@ -281,7 +280,18 @@ public class SQLQueryExpressionMapper extends SQLQueryTreeMapper<SQLQueryRowsSou
         },
         STMKnownRuleNames.nonjoinedTableReference, (n, cc, r) -> {
             // can they both be missing?
-            SQLQueryRowsSourceModel source = cc.isEmpty() ? r.collectTableReference(n, false) : cc.get(0);
+            STMTreeNode callNode = n.findFirstChildOfName(STMKnownRuleNames.functionCallExpression);
+            STMTreeNode tableNode = n.findFirstChildOfName(STMKnownRuleNames.tableName);
+            SQLQueryRowsSourceModel source;
+            if (!cc.isEmpty()) {
+                source = cc.getFirst();
+            } else if (tableNode != null) {
+                source = r.collectTableReference(tableNode, false);
+            } else if (callNode != null) {
+                source = new SQLQueryRowsTableProcModel(r.collectFunctionCall(callNode, null, true));
+            } else {
+                source = makeEmptyRowsModel(n);
+            }
 
             // TODO column reference at PARTITION clause
 
@@ -304,13 +314,18 @@ public class SQLQueryExpressionMapper extends SQLQueryTreeMapper<SQLQueryRowsSou
         STMKnownRuleNames.explicitTable, (n, cc, r) -> r.collectTableReference(n, false),
         STMKnownRuleNames.tableValueConstructor, (n, cc, r) -> {
             List<STMTreeNode> rowNodes = n.findChildrenOfName(STMKnownRuleNames.rowValueConstructor);
-            SQLQueryRowsSourceModel rs = null;
+            boolean hasErrors = false;
+            List<List<SQLQueryValueExpression>> rows = new LinkedList<>();
 
             for (STMTreeNode rowNode : rowNodes) {
                 STMTreeNode valueNode = rowNode.findFirstChildOfName(STMKnownRuleNames.rowValueConstructorElement);
                 if (valueNode != null) {
-                    boolean hasErrors = rowNode.hasErrorChildren() || valueNode.hasErrorChildren();
-                    rs = new SQLQueryRowsTableValueModel(n, List.of(r.collectValueExpression(valueNode, null)), hasErrors);
+                    hasErrors |= rowNode.hasErrorChildren() || valueNode.hasErrorChildren();
+                    STMTreeNode actualValueNode = valueNode.findFirstNonErrorChild();
+                    List<SQLQueryValueExpression> values = actualValueNode == null
+                        ? Collections.emptyList()
+                        : List.of(r.collectValueExpression(actualValueNode, null));
+                    rows.addLast(values);
                 } else {
                     STMTreeNode rowValuesNode = rowNode.findFirstChildOfName(STMKnownRuleNames.rowValueConstructorList);
                     if (rowValuesNode != null) {
@@ -322,17 +337,16 @@ public class SQLQueryExpressionMapper extends SQLQueryTreeMapper<SQLQueryRowsSou
                                         ? r.collectValueExpression(vn, null)
                                         : new SQLQueryValueFlattenedExpression(en, Collections.emptyList());
                                 }).toList();
-                        boolean hasErrors = rowNode.hasErrorChildren() || rowValuesNode.hasErrorChildren();
-                        rs = new SQLQueryRowsTableValueModel(n, values, hasErrors);
+                        hasErrors |= rowNode.hasErrorChildren() || rowValuesNode.hasErrorChildren();
+                        rows.addLast(values);
                     } else if (cc.isEmpty()) {
-                        rs = makeEmptyRowsModel(n);
+                        rows.addLast(Collections.emptyList());
                     } else {
-                        rs = cc.get(0);
+                        // TODO subquery as table-value rows source
                     }
                 }
             }
-
-            return rs != null ? rs : makeEmptyRowsModel(n);
+            return new SQLQueryRowsTableValueModel(n, rows, hasErrors);
         }
     );
 

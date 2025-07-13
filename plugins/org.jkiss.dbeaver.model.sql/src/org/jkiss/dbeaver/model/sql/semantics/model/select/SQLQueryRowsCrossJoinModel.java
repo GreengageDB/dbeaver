@@ -20,7 +20,6 @@ import org.antlr.v4.runtime.misc.Interval;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.sql.semantics.SQLQueryRecognitionContext;
-import org.jkiss.dbeaver.model.sql.semantics.context.SQLQueryDataContext;
 import org.jkiss.dbeaver.model.sql.semantics.context.SQLQueryRowsDataContext;
 import org.jkiss.dbeaver.model.sql.semantics.context.SQLQueryRowsSourceContext;
 import org.jkiss.dbeaver.model.sql.semantics.model.SQLQueryNodeModel;
@@ -46,18 +45,6 @@ public class SQLQueryRowsCrossJoinModel extends SQLQueryRowsSetOperationModel
         this.isLateral = isLateral;
     }
 
-    @NotNull
-    @Override
-    protected SQLQueryDataContext propagateContextImpl(
-        @NotNull SQLQueryDataContext context,
-        @NotNull SQLQueryRecognitionContext statistics
-    ) {
-        SQLQueryDataContext left = this.left.propagateContext(context, statistics);
-        SQLQueryDataContext right = this.right.propagateContext(this.isLateral ? left : context, statistics);
-        SQLQueryDataContext combined = left.combine(right);
-        return combined;
-    }
-
     @Override
     protected SQLQueryRowsSourceContext resolveRowSourcesImpl(
         @NotNull SQLQueryRowsSourceContext context,
@@ -67,6 +54,11 @@ public class SQLQueryRowsCrossJoinModel extends SQLQueryRowsSetOperationModel
         SQLQueryRowsSourceContext right = this.right.resolveRowSources(this.isLateral ? left : context, statistics);
         SQLQueryRowsSourceContext combined = left.combine(right);
         return combined;
+    }
+
+    @Override
+    public boolean overridesContextForChild(@NotNull SQLQueryRowsSourceModel child) {
+        return this.isLateral && child == this.right;
     }
 
     @Nullable
