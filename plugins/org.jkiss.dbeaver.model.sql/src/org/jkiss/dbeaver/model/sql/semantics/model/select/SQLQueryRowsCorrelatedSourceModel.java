@@ -81,8 +81,13 @@ public class SQLQueryRowsCorrelatedSourceModel extends SQLQueryRowsSourceModel {
         @NotNull List<SQLQuerySymbolEntry> correlationColumNames,
         @NotNull SQLQueryRowsSourceModel columnsSource
     ) {
-        if (!correlationColumNames.isEmpty()) {
-            List<SQLQueryResultColumn> columns = new ArrayList<>(context.getColumnsList());
+        List<SQLQueryResultColumn> columns = new ArrayList<>(context.getColumnsList());
+        if (correlationColumNames.isEmpty()) {
+            for (int i = 0; i < columns.size(); i++) {
+                SQLQueryResultColumn oldColumn = columns.get(i);
+                columns.set(i, oldColumn.withNewSource(columnsSource));
+            }
+        } else {
             for (int i = 0; i < columns.size() && i < correlationColumNames.size(); i++) {
                 SQLQuerySymbolEntry correlatedNameDef = correlationColumNames.get(i);
                 if (correlatedNameDef.isNotClassified()) {
@@ -94,11 +99,8 @@ public class SQLQueryRowsCorrelatedSourceModel extends SQLQueryRowsSourceModel {
                     columns.set(i, new SQLQueryResultColumn(i, correlatedName, columnsSource, null, null, oldColumn.type));
                 }
             }
-            // TODO consider referencing pseudo-columns through alias
-            return columnsSource.getRowsSources().makeTuple(columnsSource, columns, context.getPseudoColumnsList());
-        } else {
-            return columnsSource.getRowsSources().makeTuple(columnsSource, context.getColumnsList(), context.getPseudoColumnsList());
         }
+        return columnsSource.getRowsSources().makeTuple(columnsSource, columns, context.getPseudoColumnsList());
     }
 
     @Override
@@ -113,7 +115,7 @@ public class SQLQueryRowsCorrelatedSourceModel extends SQLQueryRowsSourceModel {
             }
         }
 
-        return this.source.resolveRowSources(context, statistics).appendAlias(this.source, this.alias);
+        return this.source.resolveRowSources(context, statistics).replaceWithAlias(this.source, this, this.alias);
     }
 
     @Override

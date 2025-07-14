@@ -45,6 +45,10 @@ public class SQLQuerySemanticUtils {
 
     private static final Log log = Log.getLog(SQLQuerySemanticUtils.class);
 
+    private SQLQuerySemanticUtils() {
+
+    }
+
     /**
      * Resolve object and origin from name parts
      */

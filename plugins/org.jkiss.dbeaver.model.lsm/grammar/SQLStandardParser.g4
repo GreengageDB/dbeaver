@@ -148,21 +148,21 @@ referentialAction: CASCADE|SET NULL|SET DEFAULT|NO ACTION;
 deleteRule: ON DELETE referentialAction;
 
 // search conditions
-searchCondition: booleanTerm (OR booleanTerm)* anyUnexpected??; // (.*?) - for error recovery
+searchCondition: booleanTerm (OR booleanTerm)* anyUnexpected??;
 booleanTerm: booleanFactor (AND booleanFactor)*;
 booleanFactor: (NOT)? booleanTest;
 booleanTest: booleanPrimary (IS (NOT)? truthValue)?;
 booleanPrimary: (predicate|LeftParen searchCondition RightParen|truthValue);
 predicate: (existsPredicate|likePredicate|rowValuePredicate);
 
-rowValuePredicate: rowValueConstructor (comparisonPredicate|betweenPredicate|inPredicate|nullPredicate|quantifiedComparisonPredicate|matchPredicate|overlapsPredicate);
-comparisonPredicate: compOp rowValueConstructor;
-betweenPredicate: (NOT)? BETWEEN rowValueConstructor AND rowValueConstructor;
-inPredicate: (NOT)? IN inPredicateValue;
-nullPredicate: IS (NOT? NULL | NOTNULL);
-quantifiedComparisonPredicate: compOp quantifier tableSubquery;
-matchPredicate: MATCH (UNIQUE)? (matchType)? tableSubquery;
-overlapsPredicate: OVERLAPS rowValueConstructor;
+rowValuePredicate: rowValueConstructor (comparisonPredicate|betweenPredicate|inPredicate|nullPredicate|quantifiedComparisonPredicate|matchPredicate|overlapsPredicate)?;
+comparisonPredicate: compOp rowValueConstructor?;
+betweenPredicate: (NOT)? BETWEEN (rowValueConstructor (AND rowValueConstructor?)?)?;
+inPredicate: (NOT)? IN inPredicateValue?;
+nullPredicate: IS (NOT? NULL | NOTNULL)?;
+quantifiedComparisonPredicate: compOp quantifier tableSubquery?;
+matchPredicate: MATCH (UNIQUE)? (matchType)? tableSubquery?;
+overlapsPredicate: OVERLAPS rowValueConstructor?;
 
 compOp: (EqualsOperator|NotEqualsOperator|LessThanOperator|GreaterThanOperator|LessThanOrEqualsOperator|GreaterThanOrEqualsOperator|Tilda|REGEXP);
 quantifier: (ALL|SOME|ANY);

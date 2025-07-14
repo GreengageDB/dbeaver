@@ -221,10 +221,10 @@ public class SQLQueryRowsSourceContext {
      * Associate alias with the resolved query source
      */
     @NotNull
-    public final SQLQueryRowsSourceContext appendAlias(@NotNull SQLQueryRowsSourceModel source, @NotNull SQLQuerySymbolEntry alias) {
-        SourceResolutionResult oldEntry = this.rowsSources.values().stream().filter(s -> s.source == source).findFirst().orElse(null);
+    public final SQLQueryRowsSourceContext replaceWithAlias(@NotNull SQLQueryRowsSourceModel oldSource, @NotNull SQLQueryRowsSourceModel newSource, @NotNull SQLQuerySymbolEntry alias) {
+        SourceResolutionResult oldEntry = this.rowsSources.values().stream().filter(s -> s.source == oldSource).findFirst().orElse(null);
         DBSEntity oldEntryTable = oldEntry == null ? null : oldEntry.tableOrNull;
-        SourceResolutionResult newEntry = new SourceResolutionResult(source, null, oldEntryTable, alias.getSymbol());
+        SourceResolutionResult newEntry = new SourceResolutionResult(newSource, null, oldEntryTable, alias.getSymbol());
 
         return this.setRowsSources(new HashMap<>() {
             {
@@ -232,7 +232,7 @@ public class SQLQueryRowsSourceContext {
                 if (oldEntry != null) {
                     remove(oldEntry.referenceName, oldEntry);
                 }
-                put(new SQLQueryComplexName(alias.getSyntaxNode(), List.of(alias), 0, null), newEntry);
+                //put(new SQLQueryComplexName(alias.getSyntaxNode(), List.of(alias), 0, null), newEntry);
             }
         }, new HashMap<>() {
             {
@@ -339,7 +339,7 @@ public class SQLQueryRowsSourceContext {
         return new SQLQuerySourcesInfoCollection() {
             // combine inferred sources (from the underlying query expression) and dynamically provided (from the enclosing CTE)
             private final Map<SQLQueryRowsSourceModel, SourceResolutionResult> resolutionResults =
-                Stream.of(rowsSources.values(), dynamicTableSources.values())
+                Stream.of(rowsSources.values(), sourcesByLoweredAlias.values(), dynamicTableSources.values())
                     .flatMap(Collection::stream)
                     .distinct()
                     .collect(Collectors.toMap(s -> s.source, Function.identity()));

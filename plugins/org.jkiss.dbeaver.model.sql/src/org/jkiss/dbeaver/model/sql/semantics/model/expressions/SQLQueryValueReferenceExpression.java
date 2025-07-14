@@ -171,12 +171,14 @@ public class SQLQueryValueReferenceExpression extends SQLQueryValueExpression {
                 if (context.getConnection().isDummy()) {
                     // no real database - no point to treat any random name as object
                     dbObjects = Collections.emptyList();
-                } else {
+                } else if (this.name.invalidPartsCount == 0) {
                     dbObjects = context.getConnection().findRealObjects(
                         statistics.getMonitor(),
                         RelationalObjectType.TYPE_UNKNOWN,
                         this.name.stringParts
                     );
+                } else {
+                    dbObjects = Collections.emptyList();
                 }
                 dbObject = dbObjects.size() == 1 ? dbObjects.getFirst() : null;
                 if (dbObjects.size() > 1) {

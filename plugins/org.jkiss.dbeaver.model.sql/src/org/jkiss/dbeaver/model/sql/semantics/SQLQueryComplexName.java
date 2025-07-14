@@ -110,4 +110,8 @@ public class SQLQueryComplexName {
         return Objects.hashCode(this.stringParts);
     }
 
+    @Override
+    public String toString() {
+        return "SQLQueryComplexName[" + this.getNameString() + "]";
+    }
 }
