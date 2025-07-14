@@ -18,6 +18,7 @@ package org.jkiss.dbeaver.model.sql.semantics.model.select;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.sql.semantics.SQLQueryRecognitionContext;
 import org.jkiss.dbeaver.model.sql.semantics.SQLQuerySymbol;
 import org.jkiss.dbeaver.model.sql.semantics.context.SQLQueryExprType;
@@ -32,6 +33,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 public class SQLQueryRowsTableProcModel extends SQLQueryRowsSourceModel {
+    private static final Log log = Log.getLog(SQLQueryRowsTableProcModel.class);
     @NotNull
     private final SQLQueryValueFunctionExpression callExpr;
 
@@ -85,7 +87,10 @@ public class SQLQueryRowsTableProcModel extends SQLQueryRowsSourceModel {
                     );
                 }
             } catch (DBException e) {
-                throw new RuntimeException(e);
+                String message = "Failed to resolve function result fields for " + this.callExpr.getProcName();
+                log.debug(message);
+                statistics.appendError(this.getSyntaxNode(), message);
+                this.getRowsSources().resetAsUnresolved().makeEmptyTuple();
             }
         }
         return this.getRowsSources().makeTuple(this, List.copyOf(resultColumns), Collections.emptyList());

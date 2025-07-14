@@ -77,8 +77,9 @@ public abstract class SQLQueryConnectionContext {
             List<DBSEntity> results = new ArrayList<>(objs.size());
             for (int i  = 0; i < objs.size(); i++) {
                 DBSObject obj = expandAliases(monitor, objs.get(i));
-                DBSEntity entity = obj instanceof DBSTable table ? table : (obj instanceof DBSView view ? view : null);
-                results.add(entity);
+                if (obj instanceof DBSTable || obj instanceof DBSView) {
+                    results.add((DBSEntity) obj);
+                }
             }
             return results;
         }
