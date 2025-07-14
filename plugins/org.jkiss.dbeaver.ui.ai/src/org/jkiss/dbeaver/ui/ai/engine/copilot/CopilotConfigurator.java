@@ -42,6 +42,8 @@ import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.ui.UIServiceAuth;
 import org.jkiss.dbeaver.ui.IObjectPropertyConfigurator;
 import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.ui.ai.FieldValidationException;
+import org.jkiss.dbeaver.ui.ai.engine.openai.ContextWindowSizeField;
 import org.jkiss.dbeaver.ui.ai.internal.AIUIMessages;
 import org.jkiss.utils.CommonUtils;
 
@@ -56,7 +58,7 @@ public class CopilotConfigurator implements IObjectPropertyConfigurator<AIEngine
     @Nullable
     protected Text tokenText;
     private Text temperatureText;
-    private Text modelContextWindowSizeText;
+    private ContextWindowSizeField contextSizeField;
     private Combo modelCombo;
     private Button logQueryCheck;
     private Text accessTokenText;
@@ -64,7 +66,6 @@ public class CopilotConfigurator implements IObjectPropertyConfigurator<AIEngine
     private String accessToken;
     protected String token = "";
     protected String model = "";
-    private String contextWindowSize = "0";
     private String temperature = "0.0";
     private boolean logQuery = false;
 
@@ -86,7 +87,7 @@ public class CopilotConfigurator implements IObjectPropertyConfigurator<AIEngine
     public void loadSettings(@NotNull LegacyAISettings<CopilotProperties> configuration) {
         token = CommonUtils.toString(configuration.getProperties().getToken());
         model = CommonUtils.toString(configuration.getProperties().getModel());
-        contextWindowSize = CommonUtils.toString(configuration.getProperties().getContextWindowSize(), "0");
+        contextSizeField.setValue(configuration.getProperties().getContextWindowSize());
         temperature = CommonUtils.toString(configuration.getProperties().getTemperature(), "0.0");
         logQuery = CommonUtils.toBoolean(configuration.getProperties().isLoggingEnabled());
         accessToken = CommonUtils.toString(configuration.getProperties().getToken(), "");
@@ -107,12 +108,7 @@ public class CopilotConfigurator implements IObjectPropertyConfigurator<AIEngine
             for (int i = 0; i < modelCombo.getItemCount(); i++) {
                 if (modelCombo.getItem(i).equals(model)) {
                     modelCombo.select(i);
-                    Integer contextWindowSize = AIModels.getContextWindowSize(model);
-                    modelContextWindowSizeText.setText(
-                        contextWindowSize != null
-                            ? String.valueOf(contextWindowSize)
-                            : "0"
-                    );
+                    contextSizeField.setValue(AIModels.getContextWindowSize(model));
                     break;
                 }
             }
@@ -121,19 +117,19 @@ public class CopilotConfigurator implements IObjectPropertyConfigurator<AIEngine
 
     @Override
     public void saveSettings(@NotNull LegacyAISettings<CopilotProperties> copilotSettings) {
-        if (Integer.parseInt(modelContextWindowSizeText.getText()) <= 0) {
+        try {
+            copilotSettings.getProperties().setToken(accessToken);
+            copilotSettings.getProperties().setModel(model);
+            copilotSettings.getProperties().setContextWindowSize(contextSizeField.getValue());
+            copilotSettings.getProperties().setTemperature(Double.parseDouble(temperature));
+            copilotSettings.getProperties().setLoggingEnabled(logQuery);
+        } catch (FieldValidationException e) {
             DBWorkbench.getPlatformUI().showError(
-                "Failed to save settings",
-                "Context window size must be greater than 0"
+                "Invalid settings",
+                "Failed to save Copilot settings: " + e.getMessage(),
+                e
             );
-            return;
         }
-
-        copilotSettings.getProperties().setToken(accessToken);
-        copilotSettings.getProperties().setModel(model);
-        copilotSettings.getProperties().setContextWindowSize(Integer.parseInt(modelContextWindowSizeText.getText()));
-        copilotSettings.getProperties().setTemperature(Double.parseDouble(temperature));
-        copilotSettings.getProperties().setLoggingEnabled(logQuery);
     }
 
     @Override
@@ -150,12 +146,7 @@ public class CopilotConfigurator implements IObjectPropertyConfigurator<AIEngine
         modelCombo = UIUtils.createLabelCombo(parent, AIUIMessages.gpt_preference_page_combo_engine, SWT.READ_ONLY);
         modelCombo.addSelectionListener(SelectionListener.widgetSelectedAdapter((e) -> {
             model = modelCombo.getText();
-            Integer contextWindowSize = AIModels.getContextWindowSize(model);
-            modelContextWindowSizeText.setText(
-                contextWindowSize != null
-                    ? String.valueOf(contextWindowSize)
-                    : "0"
-            );
+            contextSizeField.setValue(AIModels.getContextWindowSize(model));
         }));
 
         UIUtils.createDialogButton(
@@ -164,14 +155,10 @@ public class CopilotConfigurator implements IObjectPropertyConfigurator<AIEngine
             SelectionListener.widgetSelectedAdapter((e) -> populateModelsCombo(true))
         );
 
-        modelContextWindowSizeText = UIUtils.createLabelText(
+        contextSizeField = ContextWindowSizeField.create(
             parent,
-            "Context window size",
-            "Context window size in tokens",
-            SWT.BORDER
+            GridDataFactory.fillDefaults().span(2, 1).create()
         );
-        modelContextWindowSizeText.addVerifyListener(UIUtils.getNumberVerifyListener(Locale.getDefault()));
-        modelContextWindowSizeText.setLayoutData(GridDataFactory.fillDefaults().span(2, 1).create());
 
         GridData gridData = new GridData(GridData.FILL_HORIZONTAL);
         gridData.horizontalSpan = 2;
@@ -204,7 +191,6 @@ public class CopilotConfigurator implements IObjectPropertyConfigurator<AIEngine
             tokenText.setText(token);
         }
         modelCombo.setText(model);
-        modelContextWindowSizeText.setText(contextWindowSize != null ? contextWindowSize : "0");
         temperatureText.setText(temperature);
         logQueryCheck.setSelection(logQuery);
     }

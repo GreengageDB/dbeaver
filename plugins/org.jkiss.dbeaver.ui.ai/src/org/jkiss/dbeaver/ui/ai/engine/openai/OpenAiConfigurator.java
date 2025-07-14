@@ -37,6 +37,7 @@ import org.jkiss.dbeaver.model.ai.engine.openai.OpenAIProperties;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.IObjectPropertyConfigurator;
 import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.ui.ai.FieldValidationException;
 import org.jkiss.dbeaver.ui.ai.internal.AIUIMessages;
 import org.jkiss.utils.CommonUtils;
 
@@ -46,7 +47,6 @@ public class OpenAiConfigurator implements IObjectPropertyConfigurator<AIEngine,
     private static final String API_KEY_URL = "https://platform.openai.com/account/api-keys";
     private String token = "";
     private String model = "";
-    private String contextWindowSize = "0";
     private String temperature = "0.0";
     private boolean logQuery = false;
 
@@ -54,7 +54,7 @@ public class OpenAiConfigurator implements IObjectPropertyConfigurator<AIEngine,
     protected Text tokenText;
     private Text temperatureText;
     private Combo modelCombo;
-    private Text modelContextWindowSizeText;
+    private ContextWindowSizeField contextWindowSizeField;
     private Button logQueryCheck;
 
     @Override
@@ -77,10 +77,11 @@ public class OpenAiConfigurator implements IObjectPropertyConfigurator<AIEngine,
     public void loadSettings(@NotNull LegacyAISettings<OpenAIProperties> configuration) {
         token = CommonUtils.toString(configuration.getProperties().getToken());
         model = readModel(configuration);
-        contextWindowSize = CommonUtils.toString(configuration.getProperties().getContextWindowSize(), "0");
         temperature = CommonUtils.toString(configuration.getProperties().getTemperature(), "0.0");
         logQuery = CommonUtils.toBoolean(configuration.getProperties().isLoggingEnabled());
         applySettings();
+
+        contextWindowSizeField.setValue(configuration.getProperties().getContextWindowSize());
 
         modelCombo.setItems(model);
         modelCombo.select(0);
@@ -88,19 +89,19 @@ public class OpenAiConfigurator implements IObjectPropertyConfigurator<AIEngine,
 
     @Override
     public void saveSettings(@NotNull LegacyAISettings<OpenAIProperties> configuration) {
-        if (Integer.parseInt(modelContextWindowSizeText.getText()) <= 0) {
+        try {
+            configuration.getProperties().setToken(token);
+            configuration.getProperties().setModel(model);
+            configuration.getProperties().setContextWindowSize(contextWindowSizeField.getValue());
+            configuration.getProperties().setTemperature(Double.parseDouble(temperature));
+            configuration.getProperties().setLoggingEnabled(logQuery);
+        } catch (FieldValidationException e) {
             DBWorkbench.getPlatformUI().showError(
-                "Failed to save settings",
-                "Context window size must be greater than 0"
+                "Invalid settings",
+                "Failed to save OpenAI settings: " + e.getMessage(),
+                e
             );
-            return;
         }
-
-        configuration.getProperties().setToken(token);
-        configuration.getProperties().setModel(model);
-        configuration.getProperties().setContextWindowSize(Integer.parseInt(modelContextWindowSizeText.getText()));
-        configuration.getProperties().setTemperature(Double.parseDouble(temperature));
-        configuration.getProperties().setLoggingEnabled(logQuery);
     }
 
     @Override
@@ -130,12 +131,7 @@ public class OpenAiConfigurator implements IObjectPropertyConfigurator<AIEngine,
             @Override
             public void widgetSelected(SelectionEvent e) {
                 model = modelCombo.getText();
-                Integer contextWindowSize = AIModels.getContextWindowSize(model);
-                modelContextWindowSizeText.setText(
-                    contextWindowSize != null
-                        ? String.valueOf(contextWindowSize)
-                        : "0"
-                );
+                contextWindowSizeField.setValue(AIModels.getContextWindowSize(model));
             }
         });
 
@@ -145,14 +141,10 @@ public class OpenAiConfigurator implements IObjectPropertyConfigurator<AIEngine,
             SelectionListener.widgetSelectedAdapter((e) -> populateModels(true))
         );
 
-        modelContextWindowSizeText = UIUtils.createLabelText(
+        contextWindowSizeField = ContextWindowSizeField.create(
             parent,
-            "Context window size",
-            "Context window size in tokens",
-            SWT.BORDER
+            GridDataFactory.fillDefaults().span(2, 1).create()
         );
-        modelContextWindowSizeText.addVerifyListener(UIUtils.getNumberVerifyListener(Locale.getDefault()));
-        modelContextWindowSizeText.setLayoutData(GridDataFactory.fillDefaults().span(2, 1).create());
 
         temperatureText = UIUtils.createLabelText(parent, AIUIMessages.gpt_preference_page_text_temperature, "0.0");
         temperatureText.addVerifyListener(UIUtils.getNumberVerifyListener(Locale.getDefault()));
@@ -191,12 +183,7 @@ public class OpenAiConfigurator implements IObjectPropertyConfigurator<AIEngine,
             for (int i = 0; i < modelIds.length; i++) {
                 if (model.equals(modelIds[i])) {
                     modelCombo.select(i);
-                    Integer contextWindowSize = AIModels.getContextWindowSize(model);
-                    modelContextWindowSizeText.setText(
-                        contextWindowSize != null
-                            ? String.valueOf(contextWindowSize)
-                            : "0"
-                    );
+                    contextWindowSizeField.setValue(AIModels.getContextWindowSize(model));
                     break;
                 }
             }
@@ -259,7 +246,6 @@ public class OpenAiConfigurator implements IObjectPropertyConfigurator<AIEngine,
         }
 
         modelCombo.setText(model);
-        modelContextWindowSizeText.setText(contextWindowSize != null ? contextWindowSize : "0");
         temperatureText.setText(temperature);
         logQueryCheck.setSelection(logQuery);
     }
@@ -268,6 +254,6 @@ public class OpenAiConfigurator implements IObjectPropertyConfigurator<AIEngine,
     public boolean isComplete() {
         return tokenText != null
             && !tokenText.getText().isEmpty()
-            && Integer.parseInt(modelContextWindowSizeText.getText()) > 0;
+            && contextWindowSizeField.isComplete();
     }
 }

@@ -75,6 +75,7 @@ public class OpenAIClient implements Closeable {
         );
     }
 
+    @NotNull
     public List<Model> getModels(@NotNull DBRProgressMonitor monitor) throws DBException {
         HttpRequest request = HttpRequest.newBuilder()
             .uri(AIHttpUtils.resolve(baseUrl, "models"))
