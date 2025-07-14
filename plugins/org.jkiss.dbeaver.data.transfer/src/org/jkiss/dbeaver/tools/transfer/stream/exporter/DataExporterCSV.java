@@ -137,8 +137,6 @@ public class DataExporterCSV extends StreamExporterAbstract implements IAppendab
             case "lower" -> DBPIdentifierCase.LOWER;
             default -> DBPIdentifierCase.UPPER;
         };
-        dataExporterArrayFormat = DataExporterArrayFormat.getArrayFormat(
-            CommonUtils.toString(properties.get(PROP_FORMAT_ARRAY), DEFAULT_ARRAY_BRACKETS));
         String arrFormatProp = CommonUtils.toString(
             properties.get(PROP_FORMAT_ARRAY),
             DEFAULT_ARRAY_BRACKETS
