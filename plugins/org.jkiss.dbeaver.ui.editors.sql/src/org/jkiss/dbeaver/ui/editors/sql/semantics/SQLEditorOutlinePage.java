@@ -908,7 +908,7 @@ public class SQLEditorOutlinePage extends ContentOutlinePage implements IContent
             String extraText = this.obtainExprTypeNameString(memberRefExpr);
             DBPImage icon = this.obtainExprTypeIcon(memberRefExpr);
             
-            this.makeNode(node, memberRefExpr, text, extraText, icon);
+            this.makeNode(node, memberRefExpr, text, extraText, icon, memberRefExpr.getMemberOwner());
             return null;
         }
 
@@ -919,7 +919,7 @@ public class SQLEditorOutlinePage extends ContentOutlinePage implements IContent
             String extraText = this.obtainExprTypeNameString(indexingExpr);
             DBPImage icon = this.obtainExprTypeIcon(indexingExpr);
             
-            this.makeNode(node, indexingExpr, text, extraText, icon);
+            this.makeNode(node, indexingExpr, text, extraText, icon, indexingExpr.getMemberOwner());
             return null;
         }
 
@@ -1093,7 +1093,9 @@ public class SQLEditorOutlinePage extends ContentOutlinePage implements IContent
             } else {
                 result.add(left);
             }
-            result.add(op.getRight());
+            if (op.getRight() != null) {
+                result.add(op.getRight());
+            }
             action.accept(op, result);
         }
 

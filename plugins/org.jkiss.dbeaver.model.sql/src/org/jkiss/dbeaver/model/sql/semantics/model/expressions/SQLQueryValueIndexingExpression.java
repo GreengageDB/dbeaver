@@ -49,7 +49,12 @@ public class SQLQueryValueIndexingExpression extends SQLQueryValueExpression {
         this.owner = owner;
         this.slicingDepthSpec = slicingDepthSpec;
     }
-    
+
+    @NotNull
+    public SQLQueryValueExpression getMemberOwner() {
+        return this.owner;
+    }
+
     protected void resolveRowSourcesImpl(@NotNull SQLQueryRowsSourceContext context, @NotNull SQLQueryRecognitionContext statistics) {
         this.owner.resolveRowSources(context, statistics);
     }

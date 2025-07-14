@@ -22,6 +22,8 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.semantics.SQLQuerySymbolClass;
+import org.jkiss.dbeaver.model.sql.semantics.model.select.SQLQueryRowsNaturalJoinModel;
+import org.jkiss.dbeaver.model.sql.semantics.model.select.SQLQueryRowsSourceModel;
 import org.jkiss.dbeaver.model.stm.STMUtils;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
@@ -169,12 +171,18 @@ public class SQLQueryRowsDataContext {
     }
 
     @NotNull
-    public SQLQueryRowsDataContext combineForJoin(@NotNull SQLQueryRowsDataContext other) {
+    public SQLQueryRowsDataContext combineForJoin(
+        @NotNull SQLQueryRowsNaturalJoinModel joinSource,
+        @NotNull SQLQueryRowsDataContext other
+    ) {
         SQLQueryRowsSourceContext combinedSources = this.rowsSources.combine(other.rowsSources);
         return combinedSources.makeJoinTuple(
             STMUtils.combineLists(this.getColumnsList(), other.getColumnsList()),
             // TODO consider ambiguity and/or propagation policy of pseudo-columns here
-            STMUtils.combineLists(this.getPseudoColumnsList(), other.getPseudoColumnsList()),
+            STMUtils.combineLists(
+                this.getConnection().obtainRowsetPseudoColumns(joinSource),
+                STMUtils.combineLists(this.getPseudoColumnsList(), other.getPseudoColumnsList())
+            ),
             new JoinInfo(this, other)
         );
     }

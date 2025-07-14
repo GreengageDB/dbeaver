@@ -168,11 +168,13 @@ public class SQLQueryRowsSourceContext {
      */
     @Nullable
     public SourceResolutionResult findReferencedSourceExact(@NotNull SQLQueryComplexName name) {
-        SourceResolutionResult result = this.rowsSources.get(name);
-        if (result == null && name.stringParts.size() == 1 && name.invalidPartsCount == 0) {
-            result = this.findSourceByAlias(name.stringParts.getFirst());
+        if (name.stringParts.size() == 1 && name.invalidPartsCount == 0) {
+            SourceResolutionResult result = this.findSourceByAlias(name.stringParts.getFirst());
+            if (result != null) {
+                return result;
+            }
         }
-        return result;
+        return this.rowsSources.get(name);
     }
 
     @Nullable

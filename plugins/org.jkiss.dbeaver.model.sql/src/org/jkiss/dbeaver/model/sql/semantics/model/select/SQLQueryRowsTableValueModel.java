@@ -59,7 +59,7 @@ public class SQLQueryRowsTableValueModel extends SQLQueryRowsSourceModel {
         @NotNull SQLQueryRowsSourceContext context,
         @NotNull SQLQueryRecognitionContext statistics
     ) {
-        return context.reset();
+        return this.isIncomplete ? context.resetAsUnresolved() : context.reset();
     }
 
     @Override
@@ -89,6 +89,7 @@ public class SQLQueryRowsTableValueModel extends SQLQueryRowsSourceModel {
             }
             rowIndex++;
         }
+
 
         return this.getRowsSources().makeTuple(this, List.copyOf(resultColumns), Collections.emptyList());
     }

@@ -213,7 +213,7 @@ public class SQLQueryConnectionDummyContext extends SQLQueryConnectionContext {
         @NotNull
         @Override
         public String getFullyQualifiedName(@NotNull DBPEvaluationContext context) {
-            if (this.container == defaultDummySchema || this.container == defaultDummyCatalog || this.container == dummyDataSource) {
+            if (this.container == dummyDataSource) {
                 return this.name;
             } else {
                 return DBUtils.getFullQualifiedName(getDataSource(), this.container, this);
@@ -324,9 +324,6 @@ public class SQLQueryConnectionDummyContext extends SQLQueryConnectionContext {
     }
 
     private final DummyDbObject dummyDataSource;
-    private final DummyDbObject defaultDummyCatalog;
-    private final DummyDbObject defaultDummySchema;
-    private final DummyDbObject defaultDummyTable;
 
     private final Set<String> knownColumnNames;
     private final Set<String> knownTableNames;
@@ -345,27 +342,11 @@ public class SQLQueryConnectionDummyContext extends SQLQueryConnectionContext {
         this.knownSchemaNames = new HashSet<>();
         this.knownCatalogNames = new HashSet<>();
 
-        for (List<String> name : knownTableNames) {
-            this.knownTableNames.add(name.get(name.size() - 1));
-            if (name.size() > 1) {
-                this.knownSchemaNames.add(name.get(name.size() - 2));
-                if (name.size() > 2) {
-                    this.knownCatalogNames.add(name.get(name.size() - 3));
-                }
-            }
-        }
-
-        if (this.knownCatalogNames.isEmpty()) {
-            this.knownCatalogNames.add("dummyCatalog");
-        }
-        if (this.knownSchemaNames.isEmpty()) {
-            this.knownSchemaNames.add("dummySchema");
-        }
-
         this.dummyDataSource = this.prepareDataSource();
-        this.defaultDummyCatalog = this.dummyDataSource.getChildrenMapImpl().values().stream().findFirst().get();
-        this.defaultDummySchema = this.defaultDummyCatalog.getChildrenMapImpl().values().stream().findFirst().get();
-        this.defaultDummyTable = this.prepareTable(this.defaultDummySchema, "", -1);
+
+        for (List<String> tableName : knownTableNames) {
+            this.getOrPrepareDummyTable(tableName);
+        }
     }
 
     private DummyDbObject prepareDataSource() {
@@ -442,6 +423,11 @@ public class SQLQueryConnectionDummyContext extends SQLQueryConnectionContext {
     @NotNull
     @Override
     public List<DBSEntity> findRealTables(@NotNull DBRProgressMonitor monitor, @NotNull List<String> tableName) {
+        return List.of(this.getOrPrepareDummyTable(tableName));
+    }
+
+    @NotNull
+    private DBSEntity getOrPrepareDummyTable(@NotNull List<String> tableName) {
         List<String> rawTableName = tableName.stream().map(this.dialect::getUnquotedIdentifier).toList();
         DummyDbObject container = this.dummyDataSource;
 
@@ -459,9 +445,9 @@ public class SQLQueryConnectionDummyContext extends SQLQueryConnectionContext {
         }
         // create table
         {
-            DummyDbObject catalog = container;
-            Map<String, DummyDbObject> children  = catalog.getChildrenMapImpl();
-            return List.of(children.computeIfAbsent(rawTableName.get(rawTableName.size() - 1), k -> prepareTable(catalog, k, children.size())));
+            DummyDbObject schema = container;
+            Map<String, DummyDbObject> children  = schema.getChildrenMapImpl();
+            return children.computeIfAbsent(rawTableName.get(rawTableName.size() - 1), k -> prepareTable(schema, k, children.size()));
         }
     }
 

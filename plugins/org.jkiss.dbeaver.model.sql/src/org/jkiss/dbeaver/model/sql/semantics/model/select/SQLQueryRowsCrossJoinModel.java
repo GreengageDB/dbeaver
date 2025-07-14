@@ -19,7 +19,9 @@ package org.jkiss.dbeaver.model.sql.semantics.model.select;
 import org.antlr.v4.runtime.misc.Interval;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.model.sql.semantics.SQLQueryLexicalScope;
 import org.jkiss.dbeaver.model.sql.semantics.SQLQueryRecognitionContext;
+import org.jkiss.dbeaver.model.sql.semantics.SQLQuerySymbolOrigin;
 import org.jkiss.dbeaver.model.sql.semantics.context.SQLQueryRowsDataContext;
 import org.jkiss.dbeaver.model.sql.semantics.context.SQLQueryRowsSourceContext;
 import org.jkiss.dbeaver.model.sql.semantics.model.SQLQueryNodeModel;
@@ -34,15 +36,24 @@ public class SQLQueryRowsCrossJoinModel extends SQLQueryRowsSetOperationModel
 
     private final boolean isLateral;
 
+    @Nullable
+    private final SQLQueryLexicalScope rightSourceScope;
+
     public SQLQueryRowsCrossJoinModel(
         @NotNull Interval range,
         @NotNull STMTreeNode syntaxNode,
         @NotNull SQLQueryRowsSourceModel left,
         @NotNull SQLQueryRowsSourceModel right,
+        @Nullable SQLQueryLexicalScope rightSourceScope,
         boolean isLateral
     ) {
         super(range, syntaxNode, left, right);
+        this.rightSourceScope = rightSourceScope;
         this.isLateral = isLateral;
+
+        if (rightSourceScope != null) {
+            this.registerLexicalScope(rightSourceScope);
+        }
     }
 
     @Override
@@ -51,7 +62,9 @@ public class SQLQueryRowsCrossJoinModel extends SQLQueryRowsSetOperationModel
         @NotNull SQLQueryRecognitionContext statistics
     ) {
         SQLQueryRowsSourceContext left = this.left.resolveRowSources(context, statistics);
-        SQLQueryRowsSourceContext right = this.right.resolveRowSources(this.isLateral ? left : context, statistics);
+        SQLQueryRowsSourceContext right = this.right != null
+            ? this.right.resolveRowSources(this.isLateral ? left : context, statistics)
+            : context.resetAsUnresolved();
         SQLQueryRowsSourceContext combined = left.combine(right);
         return combined;
     }
@@ -75,7 +88,18 @@ public class SQLQueryRowsCrossJoinModel extends SQLQueryRowsSetOperationModel
         @NotNull SQLQueryRowsDataContext context,
         @NotNull SQLQueryRecognitionContext statistics
     ) {
-        return this.left.getRowsDataContext().combine(this.right.getRowsDataContext());
+        var rightSourceOrigin = new SQLQuerySymbolOrigin.RowsSourceRef(this.getRowsSources());
+        if (this.rightSourceScope != null) {
+            this.rightSourceScope.setSymbolsOrigin(rightSourceOrigin);
+            this.setTailOrigin(rightSourceOrigin);
+        }
+
+        if (this.right != null) {
+            return this.left.getRowsDataContext().combine(this.right.getRowsDataContext());
+        } else {
+            statistics.appendError(this.getSyntaxNode(), "Table to join is not specified");
+            return this.left.getRowsDataContext();
+        }
     }
 
     @Override

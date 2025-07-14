@@ -18,6 +18,7 @@ package org.jkiss.dbeaver.model.sql.semantics;
 
 import org.antlr.v4.runtime.misc.Interval;
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.lsm.sql.impl.syntax.SQLStandardParser;
 import org.jkiss.dbeaver.model.sql.semantics.model.dml.SQLQuerySelectIntoModel;
@@ -28,6 +29,7 @@ import org.jkiss.dbeaver.model.sql.semantics.model.select.*;
 import org.jkiss.dbeaver.model.stm.STMKnownRuleNames;
 import org.jkiss.dbeaver.model.stm.STMTreeNode;
 import org.jkiss.dbeaver.model.stm.STMTreeTermNode;
+import org.jkiss.dbeaver.model.stm.STMUtils;
 
 import java.util.*;
 
@@ -188,7 +190,12 @@ public class SQLQueryExpressionMapper extends SQLQueryTreeMapper<SQLQueryRowsSou
                 for (STMTreeNode childNode : childNodes.subList(1, childNodes.size())) {
                     if (!(childNode instanceof STMTreeTermNode)) {
                         final SQLQueryRowsSourceModel currSource = source;
-                        final SQLQueryRowsSourceModel nextSource = subsources.getOrEmpty(childNode);
+                        final SQLQueryRowsSourceModel nextSource = subsources.getOrNull(childNode);
+                        STMTreeNode lastTermChild = nextSource != null ? null : STMUtils.expandTerms(childNode).getLast();
+                        SQLQueryLexicalScope rightTableScope = lastTermChild == null ? null : new SQLQueryLexicalScope();
+                        if (lastTermChild != null) {
+                            rightTableScope.setInterval(Interval.of(lastTermChild.getRealInterval().b + 1, Integer.MAX_VALUE));
+                        }
                         // TODO see second case of the first source if parens are correctly ignored here
                         Interval range = Interval.of(n.getRealInterval().a, childNode.getRealInterval().b);
                         boolean isLateral = childNode.findFirstChildOfName(STMKnownRuleNames.LATERAL_TERM) != null;
@@ -206,12 +213,12 @@ public class SQLQueryExpressionMapper extends SQLQueryTreeMapper<SQLQueryRowsSou
                                             yield joinConditionNode.map(cn -> cn.findFirstChildOfName(STMKnownRuleNames.searchCondition))
                                                 .map(cn -> r.collectValueExpression(cn, condScope.lexicalScope))
                                                 .map(e -> new SQLQueryRowsNaturalJoinModel(
-                                                    range, childNode, currSource, nextSource, isLateral,
+                                                    range, childNode, currSource, nextSource, rightTableScope, isLateral,
                                                     e, condScope.lexicalScope
                                                 ))
                                                 .orElseGet(() -> new SQLQueryRowsNaturalJoinModel(
-                                                    range, childNode, currSource, nextSource, isLateral,
-                                                    Collections.emptyList(), condScope.lexicalScope
+                                                    range, childNode, currSource, nextSource, rightTableScope, isLateral,
+                                                    (SQLQueryValueExpression) null, condScope.lexicalScope
                                                 ));
                                         } else {
                                             Optional<STMTreeNode> columnsSpecNode = joinSpecificationNode
@@ -224,7 +231,7 @@ public class SQLQueryExpressionMapper extends SQLQueryTreeMapper<SQLQueryRowsSou
                                                 .map(cn -> cn.findFirstChildOfName(STMKnownRuleNames.LEFT_PAREN_TERM))
                                                 .ifPresent(cn -> condScope.lexicalScope.setInterval(Interval.of(cn.getRealInterval().b + 1, condScopeEnd)));
                                             yield new SQLQueryRowsNaturalJoinModel(
-                                                range, childNode, currSource, nextSource, isLateral,
+                                                range, childNode, currSource, nextSource, rightTableScope, isLateral,
                                                 r.collectColumnNameList(childNode), condScope.lexicalScope
                                             );
                                         }
@@ -234,6 +241,7 @@ public class SQLQueryExpressionMapper extends SQLQueryTreeMapper<SQLQueryRowsSou
                                             childNode,
                                             currSource,
                                             nextSource,
+                                            rightTableScope,
                                             isLateral,
                                             (List<SQLQuerySymbolEntry>) null,
                                             condScope.lexicalScope
@@ -242,7 +250,7 @@ public class SQLQueryExpressionMapper extends SQLQueryTreeMapper<SQLQueryRowsSou
                                 }
                             }
                             case SQLStandardParser.RULE_crossJoinTerm ->
-                                new SQLQueryRowsCrossJoinModel(range, childNode, currSource, nextSource, isLateral);
+                                new SQLQueryRowsCrossJoinModel(range, childNode, currSource, nextSource, rightTableScope, isLateral);
                             default -> throw new UnsupportedOperationException(
                                 "Unexpected child node kind at queryExpression: " + childNode.getNodeName());
                         };
@@ -255,6 +263,11 @@ public class SQLQueryExpressionMapper extends SQLQueryTreeMapper<SQLQueryRowsSou
             if (cc.isEmpty()) {
                 return makeEmptyRowsModel(n);
             } else {
+                STMTreeNode firstTermChild = n.findFirstNonErrorChild() instanceof STMTreeTermNode t ? t : null; // FROM term
+                SQLQueryLexicalScope rightTableScope = firstTermChild != null ? new SQLQueryLexicalScope() : null;
+                if (firstTermChild != null) {
+                    rightTableScope.setInterval(Interval.of(firstTermChild.getRealInterval().b + 1, Integer.MAX_VALUE));
+                }
                 SubsourcesMap subsources = new SubsourcesMap(cc, n);
                 STMTreeNode firstChild = n.findFirstChildOfName(STMKnownRuleNames.tableReference);
                 List<STMTreeNode> restChilds = n.findChildrenOfName(STMKnownRuleNames.fromClauseTerm);
@@ -264,7 +277,7 @@ public class SQLQueryExpressionMapper extends SQLQueryTreeMapper<SQLQueryRowsSou
                     if (nextSource != null) {
                         Interval range = Interval.of(n.getRealInterval().a, childNode.getRealInterval().b);
                         boolean isLateral = childNode.findFirstChildOfName(STMKnownRuleNames.LATERAL_TERM) != null;
-                        source = new SQLQueryRowsCrossJoinModel(range, childNode, source, nextSource, isLateral);
+                        source = new SQLQueryRowsCrossJoinModel(range, childNode, source, nextSource, rightTableScope, isLateral);
                     } else {
                         // certain tableReference subtree was not recognized correctly, consider error message
                     }
@@ -359,6 +372,11 @@ public class SQLQueryExpressionMapper extends SQLQueryTreeMapper<SQLQueryRowsSou
                 STMTreeNode subrootChild = findImmediateChild(subroot, subquery.getSyntaxNode());
                 this.subsourceByNode.put(subrootChild, subquery);
             }
+        }
+
+        @Nullable
+        public SQLQueryRowsSourceModel getOrNull(@NotNull STMTreeNode subrootsChild) {
+            return this.subsourceByNode.get(subrootsChild);
         }
 
         @NotNull

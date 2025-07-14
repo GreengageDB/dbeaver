@@ -92,17 +92,19 @@ public class SQLQueryValueTupleReferenceExpression extends SQLQueryValueExpressi
         if (this.tableName.isNotClassified()) {
             SQLQuerySymbolOrigin tableNameOrigin = new SQLQuerySymbolOrigin.RowsDataRef(context);
             if (this.tableName.invalidPartsCount == 0) {
-                SQLQueryRowsSourceContext.SourceResolutionInfo rr = context.getRowsSources().findReferencedSource(this.tableName);
-                if (rr != null && rr.key().parts.size() == this.tableName.parts.size()) {
-                    this.tupleSource = rr.target().source;
-                    SQLQuerySemanticUtils.setNamePartsDefinition(this.tableName, rr.target(), tableNameOrigin);
+                SourceResolutionResult rr = context.getRowsSources().findReferencedSourceExact(this.tableName);
+                if (rr != null) {
+                    this.tupleSource = rr.source;
+                    SQLQuerySemanticUtils.setNamePartsDefinition(this.tableName, rr, tableNameOrigin);
                     if (this.memberAccessEntry != null) {
-                        this.memberAccessEntry.setOrigin(new SQLQuerySymbolOrigin.ColumnRefFromReferencedContext(rr.target()));
+                        this.memberAccessEntry.setOrigin(new SQLQuerySymbolOrigin.ColumnRefFromReferencedContext(rr));
                     }
                     if (this.tupleRefEntry != null) {
-                        this.tupleRefEntry.setOrigin(new SQLQuerySymbolOrigin.ExpandableRowsTupleRef(this.getSyntaxNode(), context, rr.target()));
+                        this.tupleRefEntry.setOrigin(
+                            new SQLQuerySymbolOrigin.ExpandableRowsTupleRef(this.getSyntaxNode(), context, rr)
+                        );
                     }
-                    result = SQLQueryExprType.forReferencedRow(this.tableName, rr.target());
+                    result = SQLQueryExprType.forReferencedRow(this.tableName, rr);
                 } else {
                     this.tableName.parts.forEach(p -> p.getSymbol().setSymbolClass(SQLQuerySymbolClass.ERROR));
                     statistics.appendError(

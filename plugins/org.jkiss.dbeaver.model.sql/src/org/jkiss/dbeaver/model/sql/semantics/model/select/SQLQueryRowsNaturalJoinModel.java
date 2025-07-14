@@ -42,6 +42,8 @@ public class SQLQueryRowsNaturalJoinModel extends SQLQueryRowsSetOperationModel
     @Nullable
     private final List<SQLQuerySymbolEntry> columnsToJoin;
 
+    @Nullable
+    private final SQLQueryLexicalScope rightSourceScope;
     @NotNull
     private final SQLQueryLexicalScope conditionScope;
 
@@ -51,18 +53,26 @@ public class SQLQueryRowsNaturalJoinModel extends SQLQueryRowsSetOperationModel
         @NotNull Interval range,
         @NotNull STMTreeNode syntaxNode,
         @NotNull SQLQueryRowsSourceModel left,
-        @NotNull SQLQueryRowsSourceModel right,
+        @Nullable SQLQueryRowsSourceModel right,
+        @Nullable SQLQueryLexicalScope rightSourceScope,
         boolean isLateral,
-        @NotNull SQLQueryValueExpression condition,
+        @Nullable SQLQueryValueExpression condition,
         @NotNull SQLQueryLexicalScope conditionScope
     ) {
         super(range, syntaxNode, left, right);
-        super.registerSubnode(condition);
+        this.rightSourceScope = rightSourceScope;
         this.isLateral = isLateral;
         this.condition = condition;
         this.conditionScope = conditionScope;
         this.columnsToJoin = null;
-        
+
+        if (condition != null) {
+            super.registerSubnode(condition);
+        }
+
+        if (rightSourceScope != null) {
+            this.registerLexicalScope(rightSourceScope);
+        }
         this.registerLexicalScope(conditionScope);
     }
 
@@ -70,17 +80,22 @@ public class SQLQueryRowsNaturalJoinModel extends SQLQueryRowsSetOperationModel
         @NotNull Interval range,
         @NotNull STMTreeNode syntaxNode,
         @NotNull SQLQueryRowsSourceModel left,
-        @NotNull SQLQueryRowsSourceModel right,
+        @Nullable SQLQueryRowsSourceModel right,
+        @Nullable SQLQueryLexicalScope rightSourceScope,
         boolean isLateral,
         @Nullable List<SQLQuerySymbolEntry> columnsToJoin,
         @NotNull SQLQueryLexicalScope conditionScope
     ) {
         super(range, syntaxNode, left, right);
+        this.rightSourceScope = rightSourceScope;
         this.isLateral = isLateral;
         this.condition = null;
         this.conditionScope = conditionScope;
         this.columnsToJoin = columnsToJoin;
 
+        if (rightSourceScope != null) {
+            this.registerLexicalScope(rightSourceScope);
+        }
         this.registerLexicalScope(conditionScope);
     }
 
@@ -101,7 +116,9 @@ public class SQLQueryRowsNaturalJoinModel extends SQLQueryRowsSetOperationModel
         @NotNull SQLQueryRecognitionContext statistics
     ) {
         SQLQueryRowsSourceContext left = this.left.resolveRowSources(context, statistics);
-        SQLQueryRowsSourceContext right = this.right.resolveRowSources(this.isLateral ? left : context, statistics);
+        SQLQueryRowsSourceContext right = this.right != null
+            ? this.right.resolveRowSources(this.isLateral ? left : context, statistics)
+            : context.resetAsUnresolved();
         SQLQueryRowsSourceContext result = left.combine(right);
 
         if (this.condition != null) {
@@ -131,8 +148,19 @@ public class SQLQueryRowsNaturalJoinModel extends SQLQueryRowsSetOperationModel
         @NotNull SQLQueryRowsDataContext context,
         @NotNull SQLQueryRecognitionContext statistics
     ) {
-        SQLQueryRowsDataContext x = this.left.getRowsDataContext().combineForJoin(this.right.getRowsDataContext());
-        SQLQueryRowsDataContext combinedContext = this.getRowsSources().makeTuple(this, x.getColumnsList(), x.getPseudoColumnsList());
+        SQLQueryRowsDataContext combinedContext;
+        if (this.right != null) {
+            combinedContext = this.left.getRowsDataContext().combineForJoin(this, this.right.getRowsDataContext());
+        } else {
+            combinedContext = this.left.getRowsDataContext();
+            statistics.appendError(this.getSyntaxNode(), "Table to join is not specified");
+        }
+
+        var rightSourceOrigin = new SQLQuerySymbolOrigin.RowsSourceRef(this.getRowsSources());
+        if (this.rightSourceScope != null) {
+            this.rightSourceScope.setSymbolsOrigin(rightSourceOrigin);
+            this.setTailOrigin(rightSourceOrigin);
+        }
 
         if (this.columnsToJoin != null) {
             var columnNameOrigin = new SQLQuerySymbolOrigin.ColumnNameFromRowsData(combinedContext);
@@ -141,7 +169,7 @@ public class SQLQueryRowsNaturalJoinModel extends SQLQueryRowsSetOperationModel
                     SQLQuerySymbol symbol = column.getSymbol();
                     SQLQueryResultColumn leftColumnDef = this.left.getRowsDataContext()
                         .resolveColumn(statistics.getMonitor(), column.getName());
-                    SQLQueryResultColumn rightColumnDef = this.right.getRowsDataContext()
+                    SQLQueryResultColumn rightColumnDef = this.right == null ? null : this.right.getRowsDataContext()
                         .resolveColumn(statistics.getMonitor(), column.getName());
                     if (leftColumnDef != null && rightColumnDef != null) {
                         symbol.setDefinition(column); // TODO multiple definitions per symbol
@@ -157,14 +185,17 @@ public class SQLQueryRowsNaturalJoinModel extends SQLQueryRowsSetOperationModel
                     column.setOrigin(columnNameOrigin);
                 }
             }
+            this.setTailOrigin(columnNameOrigin);
             this.conditionScope.setSymbolsOrigin(columnNameOrigin);
         } else {
             var conditionOrigin = new SQLQuerySymbolOrigin.RowsDataRef(combinedContext);
-            this.setTailOrigin(conditionOrigin);
+            this.conditionScope.setSymbolsOrigin(conditionOrigin);
+            if (this.getTailOrigin() == null) {
+                this.setTailOrigin(conditionOrigin);
+            }
 
             if (this.condition != null) {
                 this.condition.resolveValueRelations(combinedContext, statistics);
-                this.conditionScope.setSymbolsOrigin(conditionOrigin);
             }
         }
 
