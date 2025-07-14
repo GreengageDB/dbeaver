@@ -139,6 +139,14 @@ public class DataExporterCSV extends StreamExporterAbstract implements IAppendab
         };
         dataExporterArrayFormat = DataExporterArrayFormat.getArrayFormat(
             CommonUtils.toString(properties.get(PROP_FORMAT_ARRAY), DEFAULT_ARRAY_BRACKETS));
+        String arrFormatProp = CommonUtils.toString(
+            properties.get(PROP_FORMAT_ARRAY),
+            DEFAULT_ARRAY_BRACKETS
+        ).trim();
+        if (arrFormatProp.isEmpty()) {
+            arrFormatProp = DEFAULT_ARRAY_BRACKETS;
+        }
+        dataExporterArrayFormat = DataExporterArrayFormat.getArrayFormat(arrFormatProp);
     }
 
     @Override
