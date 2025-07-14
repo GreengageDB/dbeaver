@@ -34,20 +34,8 @@ public class ContextWindowSizeField {
         this.text = text;
     }
 
-    public static ContextWindowSizeField create(
-        @NotNull Composite parent,
-        @NotNull GridData gridData
-    ) {
-        Text text = UIUtils.createLabelText(
-            parent,
-            "Context window size",
-            "Context window size in tokens",
-            SWT.BORDER
-        );
-        text.addVerifyListener(UIUtils.getNumberVerifyListener(Locale.getDefault()));
-        text.setLayoutData(gridData);
-
-        return new ContextWindowSizeField(text);
+    public static Builder builder() {
+        return new Builder();
     }
 
     public void setValue(Integer value) {
@@ -64,5 +52,35 @@ public class ContextWindowSizeField {
 
     public boolean isComplete() {
         return CommonUtils.toInt(text.getText(), 0) > 0;
+    }
+
+    public static class Builder {
+        @NotNull
+        private Composite parent;
+        @NotNull
+        private GridData gridData;
+
+        public Builder withParent(@NotNull Composite parent) {
+            this.parent = parent;
+            return this;
+        }
+
+        public Builder withGridData(@NotNull GridData gridData) {
+            this.gridData = gridData;
+            return this;
+        }
+
+        public ContextWindowSizeField build() {
+            Text text = UIUtils.createLabelText(
+                parent,
+                "Context window size",
+                "Context window size in tokens",
+                SWT.BORDER
+            );
+            text.addVerifyListener(UIUtils.getNumberVerifyListener(Locale.getDefault()));
+            text.setLayoutData(gridData);
+
+            return new ContextWindowSizeField(text);
+        }
     }
 }

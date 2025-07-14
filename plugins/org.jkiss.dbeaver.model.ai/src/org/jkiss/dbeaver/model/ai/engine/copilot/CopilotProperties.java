@@ -17,8 +17,8 @@
 package org.jkiss.dbeaver.model.ai.engine.copilot;
 
 import com.google.gson.annotations.SerializedName;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.model.ai.AIModels;
 import org.jkiss.dbeaver.model.ai.engine.AIEngineProperties;
 import org.jkiss.dbeaver.model.ai.utils.AIUtils;
 import org.jkiss.dbeaver.model.meta.SecureProperty;
@@ -26,13 +26,16 @@ import org.jkiss.dbeaver.model.secret.DBSSecretController;
 import org.jkiss.utils.CommonUtils;
 
 public class CopilotProperties implements AIEngineProperties {
+    @Nullable
     @SecureProperty
     @SerializedName("copilot.access.token")
     private String token;
 
+    @Nullable
     @SerializedName("gpt.model")
     private String model;
 
+    @Nullable
     @SerializedName("gpt.model.context.window.size")
     private Integer contextWindowSize;
 
@@ -42,19 +45,21 @@ public class CopilotProperties implements AIEngineProperties {
     @SerializedName("gpt.log.query")
     private boolean loggingEnabled;
 
+    @Nullable
     public String getToken() {
         return token;
     }
 
-    public void setToken(String token) {
+    public void setToken(@Nullable String token) {
         this.token = token;
     }
 
+    @Nullable
     public String getModel() {
         return model;
     }
 
-    public void setModel(String model) {
+    public void setModel(@Nullable String model) {
         this.model = model;
     }
 
@@ -63,10 +68,14 @@ public class CopilotProperties implements AIEngineProperties {
             return contextWindowSize;
         }
 
-        return AIModels.getContextWindowSize(model);
+        if (model == null || model.isBlank()) {
+            return null;
+        }
+
+        return CopilotModels.getContextWindowSize(model);
     }
 
-    public void setContextWindowSize(Integer contextWindowSize) {
+    public void setContextWindowSize(@Nullable Integer contextWindowSize) {
         this.contextWindowSize = contextWindowSize;
     }
 

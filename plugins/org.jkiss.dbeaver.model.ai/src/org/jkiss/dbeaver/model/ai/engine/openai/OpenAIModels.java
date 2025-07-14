@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jkiss.dbeaver.model.ai;
+package org.jkiss.dbeaver.model.ai.engine.openai;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
@@ -23,8 +23,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-public final class AIModels {
-    private AIModels() {
+public final class OpenAIModels {
+    private OpenAIModels() {
     }
 
     public static final String DEFAULT_MODEL = "gpt-4o";
@@ -38,21 +38,12 @@ public final class AIModels {
         Map.entry("o1-pro", 200_000),
         Map.entry("o1", 200_000),
         Map.entry("o1-mini", 128_000),
-        Map.entry("gpt-4.1", 1_048_576),   // double-check intended value
+        Map.entry("gpt-4.1", 1_048_576),
         Map.entry("gpt-4o", 128_000),
-        Map.entry("chatgpt-4o", 128_000),
         Map.entry("gpt-4o-mini", 128_000),
         Map.entry("gpt-4-turbo", 128_000),
         Map.entry("gpt-3.5-turbo", 16_384),
-        Map.entry("gpt-4", 8_192),
-
-        Map.entry("claude-3.5-sonnet", 200_000),
-        Map.entry("claude-3.7-sonnet", 200_000),
-        Map.entry("claude-3.7-sonnet-thought", 200_000),
-        Map.entry("claude-sonnet-4", 200_000),
-
-        Map.entry("gemini-2.5-pro", 1_000_000),
-        Map.entry("gemini-2.0-flash-001", 1_000_000)
+        Map.entry("gpt-4", 8_192)
     );
 
     public static final Set<String> DEPRECATED_MODELS = Set.of(
@@ -90,5 +81,18 @@ public final class AIModels {
             return DEFAULT_MODEL;
         }
         return lowerCaseModelName;
+    }
+
+    /**
+     * Checks if the given model name is a text model.
+     * A text model is defined as one that starts with "gpt-", "o".
+     *
+     * @param modelName the model name to check
+     * @return true if the model is a text model, false otherwise
+     */
+    public static boolean isTextModel(@NotNull String modelName) {
+        String lowerCaseModelName = modelName.toLowerCase(Locale.ROOT);
+        return lowerCaseModelName.startsWith("gpt-")
+            || lowerCaseModelName.startsWith("o");
     }
 }

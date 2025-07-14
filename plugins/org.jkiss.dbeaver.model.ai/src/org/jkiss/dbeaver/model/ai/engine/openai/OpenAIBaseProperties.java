@@ -16,15 +16,19 @@
  */
 package org.jkiss.dbeaver.model.ai.engine.openai;
 
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.ai.engine.AIEngineProperties;
 import org.jkiss.utils.CommonUtils;
 
 public interface OpenAIBaseProperties extends AIEngineProperties {
 
+    @Nullable
     String getToken();
 
+    @Nullable
     String getModel();
 
+    @Nullable
     Integer getContextWindowSize();
 
     double getTemperature();

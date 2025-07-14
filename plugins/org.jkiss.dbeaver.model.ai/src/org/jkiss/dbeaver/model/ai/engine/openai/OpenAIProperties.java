@@ -17,22 +17,25 @@
 package org.jkiss.dbeaver.model.ai.engine.openai;
 
 import com.google.gson.annotations.SerializedName;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.ai.AIConstants;
-import org.jkiss.dbeaver.model.ai.AIModels;
 import org.jkiss.dbeaver.model.ai.utils.AIUtils;
 import org.jkiss.dbeaver.model.meta.SecureProperty;
 import org.jkiss.dbeaver.model.secret.DBSSecretController;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 
 public class OpenAIProperties implements OpenAIBaseProperties {
+    @Nullable
     @SecureProperty
     @SerializedName("gpt.token")
     private String token;
 
+    @Nullable
     @SerializedName("gpt.model")
     private String model;
 
+    @Nullable
     @SerializedName("gpt.model.context.window.size")
     private Integer contextWindowSize;
 
@@ -42,6 +45,7 @@ public class OpenAIProperties implements OpenAIBaseProperties {
     @SerializedName("gpt.log.query")
     private boolean loggingEnabled;
 
+    @Nullable
     @Override
     public String getToken() {
         return token;
@@ -52,10 +56,10 @@ public class OpenAIProperties implements OpenAIBaseProperties {
         if (fallbackToPrefStore()) {
             String modelName = DBWorkbench.getPlatform().getPreferenceStore()
                 .getString(OpenAIConstants.GPT_MODEL);
-            return AIModels.getEffectiveModelName(modelName);
+            return OpenAIModels.getEffectiveModelName(modelName);
         }
 
-        return AIModels.getEffectiveModelName(model);
+        return OpenAIModels.getEffectiveModelName(model);
     }
 
     @Override
@@ -86,11 +90,11 @@ public class OpenAIProperties implements OpenAIBaseProperties {
         DBSSecretController.getGlobalSecretController().setPrivateSecretValue(OpenAIConstants.GPT_API_TOKEN, token);
     }
 
-    public void setToken(String token) {
+    public void setToken(@Nullable String token) {
         this.token = token;
     }
 
-    public void setModel(String model) {
+    public void setModel(@Nullable String model) {
         this.model = model;
     }
 
@@ -99,10 +103,10 @@ public class OpenAIProperties implements OpenAIBaseProperties {
             return contextWindowSize;
         }
 
-        return AIModels.getContextWindowSize(getModel());
+        return OpenAIModels.getContextWindowSize(getModel());
     }
 
-    public void setContextWindowSize(Integer contextWindowSize) {
+    public void setContextWindowSize(@Nullable Integer contextWindowSize) {
         this.contextWindowSize = contextWindowSize;
     }
 
