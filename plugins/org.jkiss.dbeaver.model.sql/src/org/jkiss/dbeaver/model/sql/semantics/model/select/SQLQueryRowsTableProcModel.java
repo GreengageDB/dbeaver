@@ -88,7 +88,7 @@ public class SQLQueryRowsTableProcModel extends SQLQueryRowsSourceModel {
                 }
             } catch (DBException e) {
                 String message = "Failed to resolve function result fields for " + this.callExpr.getProcName();
-                log.debug(message);
+                log.debug(message, e);
                 statistics.appendError(this.getSyntaxNode(), message);
                 this.getRowsSources().resetAsUnresolved().makeEmptyTuple();
             }
