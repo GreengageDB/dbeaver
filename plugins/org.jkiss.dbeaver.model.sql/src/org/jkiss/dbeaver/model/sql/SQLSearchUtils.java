@@ -33,6 +33,7 @@ import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedure;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureContainer;
 
+import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -320,21 +321,26 @@ public class SQLSearchUtils {
         @NotNull DBSProcedureContainer procsContainer,
         @NotNull String procedureName
     ) throws DBException {
-        DBSProcedure child = procsContainer.getProcedure(monitor, procedureName);
-        if (child != null) {
-            return List.of(child);
-        } else {
-            Collection<? extends DBSProcedure> procs = procsContainer.getProcedures(monitor);
-            if (procs != null) {
-                List<? extends DBSProcedure> matchedProcs = procs.stream().filter(p -> p.getName().equals(procedureName)).toList();
-                if (matchedProcs.size() > 0) {
-                    return matchedProcs;
+        try {
+            DBSProcedure child = procsContainer.getProcedure(monitor, procedureName);
+            if (child != null) {
+                return List.of(child);
+            } else {
+                Collection<? extends DBSProcedure> procs = procsContainer.getProcedures(monitor);
+                if (procs != null) {
+                    List<? extends DBSProcedure> matchedProcs = procs.stream().filter(p -> p.getName().equals(procedureName)).toList();
+                    if (matchedProcs.size() > 0) {
+                        return matchedProcs;
+                    } else {
+                        return Collections.emptyList();
+                    }
                 } else {
                     return Collections.emptyList();
                 }
-            } else {
-                return Collections.emptyList();
             }
+        } catch (SQLFeatureNotSupportedException ex) {
+            log.trace("Cannot search for procedure object " + procedureName, ex);
+            return Collections.emptyList();
         }
     }
 }
