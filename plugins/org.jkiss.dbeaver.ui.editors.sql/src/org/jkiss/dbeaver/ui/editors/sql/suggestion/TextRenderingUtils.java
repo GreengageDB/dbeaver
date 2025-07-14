@@ -23,6 +23,7 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.graphics.*;
 import org.eclipse.swt.widgets.Event;
+import org.jkiss.code.NotNull;
 import org.jkiss.utils.CommonUtils;
 
 public class TextRenderingUtils {
@@ -193,5 +194,12 @@ public class TextRenderingUtils {
         }
 
         return suggestion;
+    }
+
+    /**
+     * Check if the text contains whitespace or linebreak at the specified position
+     */
+    public static boolean isSpaceOrNewLineAtPosition(@NotNull String text, int position) {
+        return text.charAt(position) == ' ' || text.charAt(position) == '\n' || text.charAt(position) == '\r';
     }
 }
