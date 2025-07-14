@@ -41,7 +41,6 @@ import org.jkiss.dbeaver.ui.preferences.TargetPrefPage;
 import org.jkiss.dbeaver.utils.PrefUtils;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * PrefPageSQLEditor
@@ -67,6 +66,7 @@ public class PrefPageSQLEditor extends TargetPrefPage {
     private Button autoOpenOutputView;
     private Button replaceCurrentTab;
     private Spinner sizeWarningThresholdSpinner;
+    // Initialized to empty immutable list to avoid null checks
     private List<SQLPresentationToggle> presentationToggles = List.of();
 
     public PrefPageSQLEditor() {
@@ -171,14 +171,19 @@ public class PrefPageSQLEditor extends TargetPrefPage {
                 .map(SQLPresentationToggle::new)
                 .toList();
 
-            AtomicReference<Group> group = new AtomicReference<>();
-            presentationToggles.forEach(toggle -> {
-                    if (group.get() == null) {
-                        group.set(createPresentationGroup(composite));
-                    }
-                    toggle.button = UIUtils.createCheckbox(group.get(), toggle.descriptor.getPrefLabel(), toggle.descriptor.getPrefTip(), true, 1);
-                }
-            );
+            if (!presentationToggles.isEmpty()) {
+                Group group = UIUtils.createControlGroup(
+                    composite,
+                    SQLEditorMessages.pref_page_sql_editor_group_presentations,
+                    1,
+                    GridData.VERTICAL_ALIGN_BEGINNING,
+                    0
+                );
+                ((GridData) group.getLayoutData()).horizontalSpan = 2;
+                presentationToggles.forEach(toggle ->
+                    toggle.button = UIUtils.createCheckbox(group, toggle.descriptor.getPrefLabel(), toggle.descriptor.getPrefTip(), true, 1)
+                );
+            }
         }
 
         {
@@ -364,20 +369,6 @@ public class PrefPageSQLEditor extends TargetPrefPage {
             .getService(IEvaluationService.class)
             .requestEvaluation(settingKey);
 
-    }
-
-    @NotNull
-    private static Group createPresentationGroup(Composite composite) {
-        Group group;
-        group = UIUtils.createControlGroup(
-            composite,
-            SQLEditorMessages.pref_page_sql_editor_group_presentations,
-            1,
-            GridData.VERTICAL_ALIGN_BEGINNING,
-            0
-        );
-        ((GridData) group.getLayoutData()).horizontalSpan = 2;
-        return group;
     }
 
     private static final class SQLPresentationToggle {
