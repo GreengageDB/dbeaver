@@ -16,12 +16,13 @@
  */
 package org.jkiss.dbeaver.ui.editors.sql.preferences;
 
-import org.eclipse.core.runtime.Platform;
 import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.*;
+import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.preferences.IWorkbenchPreferenceContainer;
+import org.eclipse.ui.services.IEvaluationService;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ModelPreferences.SeparateConnectionBehavior;
@@ -34,13 +35,13 @@ import org.jkiss.dbeaver.ui.editors.EditorUtils;
 import org.jkiss.dbeaver.ui.editors.sql.SQLEditor;
 import org.jkiss.dbeaver.ui.editors.sql.SQLPreferenceConstants;
 import org.jkiss.dbeaver.ui.editors.sql.internal.SQLEditorMessages;
-import org.jkiss.dbeaver.ui.editors.sql.registry.ISQLPresentationContributor;
+import org.jkiss.dbeaver.ui.editors.sql.registry.SQLPresentationDescriptor;
 import org.jkiss.dbeaver.ui.editors.sql.registry.SQLPresentationRegistry;
 import org.jkiss.dbeaver.ui.preferences.TargetPrefPage;
 import org.jkiss.dbeaver.utils.PrefUtils;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * PrefPageSQLEditor
@@ -66,7 +67,7 @@ public class PrefPageSQLEditor extends TargetPrefPage {
     private Button autoOpenOutputView;
     private Button replaceCurrentTab;
     private Spinner sizeWarningThresholdSpinner;
-    private List<SQLEditorPresentationRef> presentationRefs = new ArrayList<>();
+    private List<SQLPresentationToggle> presentationToggles = List.of();
 
     public PrefPageSQLEditor() {
         super();
@@ -165,26 +166,19 @@ public class PrefPageSQLEditor extends TargetPrefPage {
         }
 
         {
-            presentationRefs = SQLPresentationRegistry.getInstance().getToggleablePresentations().stream()
-                .map(SQLEditorPresentationRef::new)
+            presentationToggles = SQLPresentationRegistry.getInstance().getPresentations().stream()
+                .filter(p -> p.getSettingKey() != null)
+                .map(SQLPresentationToggle::new)
                 .toList();
 
-            Group group = null;
-            for (var ref : presentationRefs) {
-                if (Platform.getBundle(ref.contributor.getBundleName()) != null) {
-                    if (group == null) {
-                        group = UIUtils.createControlGroup(
-                            composite,
-                            SQLEditorMessages.pref_page_sql_editor_group_presentations,
-                            1,
-                            GridData.VERTICAL_ALIGN_BEGINNING,
-                            0
-                        );
-                        ((GridData) group.getLayoutData()).horizontalSpan = 2;
+            AtomicReference<Group> group = new AtomicReference<>();
+            presentationToggles.forEach(toggle -> {
+                    if (group.get() == null) {
+                        group.set(createPresentationGroup(composite));
                     }
-                    ref.button = UIUtils.createCheckbox(group, ref.contributor.getLabel(), ref.contributor.getTooltip(), true, 1);
+                    toggle.button = UIUtils.createCheckbox(group.get(), toggle.descriptor.getPrefLabel(), toggle.descriptor.getPrefTip(), true, 1);
                 }
-            }
+            );
         }
 
         {
@@ -238,12 +232,11 @@ public class PrefPageSQLEditor extends TargetPrefPage {
             store.setValue(SQLPreferenceConstants.OUTPUT_PANEL_AUTO_SHOW, autoOpenOutputView.getSelection());
             store.setValue(SQLPreferenceConstants.RESULT_SET_MAX_TABS_PER_QUERY, sizeWarningThresholdSpinner.getSelection());
 
-            for (var ref : presentationRefs) {
-                if (Platform.getBundle(ref.contributor.getBundleName()) != null) {
-                    store.setValue(ref.contributor.getSettingKey(), ref.button.getSelection());
-                    ref.contributor.togglePresentation(ref.contributor.getId(), ref.button.getSelection());
+            presentationToggles.forEach(toggle -> {
+                    store.setValue(toggle.descriptor.getSettingKey(), toggle.button.getSelection());
+                    updateUI(toggle.descriptor.getSettingKey());
                 }
-            }
+            );
         } catch (Exception e) {
             log.warn(e);
         }
@@ -266,11 +259,9 @@ public class PrefPageSQLEditor extends TargetPrefPage {
         store.setToDefault(SQLPreferenceConstants.RESULT_SET_ORIENTATION);
         store.setToDefault(SQLPreferenceConstants.OUTPUT_PANEL_AUTO_SHOW);
 
-        for (var ref : presentationRefs) {
-            if (Platform.getBundle(ref.contributor.getBundleName()) != null) {
-                store.setToDefault(ref.contributor.getSettingKey());
-            }
-        }
+        presentationToggles.forEach(toggle ->
+            store.setToDefault(toggle.descriptor.getSettingKey())
+        );
     }
 
     @Override
@@ -355,28 +346,47 @@ public class PrefPageSQLEditor extends TargetPrefPage {
                     : store.getInt(SQLPreferenceConstants.RESULT_SET_MAX_TABS_PER_QUERY)
             );
 
-            for (var ref : presentationRefs) {
-                if (Platform.getBundle(ref.contributor.getBundleName()) != null) {
-                    ref.button.setSelection(
-                        useDefaults
-                            ? store.getDefaultBoolean(ref.contributor.getSettingKey())
-                            : store.getBoolean(ref.contributor.getSettingKey())
-                    );
-                }
-            }
+            presentationToggles.forEach(ref ->
+                ref.button.setSelection(
+                    useDefaults
+                        ? store.getDefaultBoolean(ref.descriptor.getSettingKey())
+                        : store.getBoolean(ref.descriptor.getSettingKey())
+                )
+            );
 
         } catch (Exception e) {
             log.warn(e);
         }
     }
 
-    private static final class SQLEditorPresentationRef {
-        final ISQLPresentationContributor contributor;
+    private void updateUI(String settingKey) {
+        PlatformUI.getWorkbench()
+            .getService(IEvaluationService.class)
+            .requestEvaluation(settingKey);
+
+    }
+
+    @NotNull
+    private static Group createPresentationGroup(Composite composite) {
+        Group group;
+        group = UIUtils.createControlGroup(
+            composite,
+            SQLEditorMessages.pref_page_sql_editor_group_presentations,
+            1,
+            GridData.VERTICAL_ALIGN_BEGINNING,
+            0
+        );
+        ((GridData) group.getLayoutData()).horizontalSpan = 2;
+        return group;
+    }
+
+    private static final class SQLPresentationToggle {
+        final SQLPresentationDescriptor descriptor;
 
         private Button button;
 
-        public SQLEditorPresentationRef(@NotNull ISQLPresentationContributor contributor) {
-            this.contributor = contributor;
+        public SQLPresentationToggle(@NotNull SQLPresentationDescriptor descriptor) {
+            this.descriptor = descriptor;
         }
     }
 
