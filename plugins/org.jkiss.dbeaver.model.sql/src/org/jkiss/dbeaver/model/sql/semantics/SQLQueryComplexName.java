@@ -21,6 +21,7 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.sql.semantics.model.SQLQueryMemberAccessEntry;
 import org.jkiss.dbeaver.model.stm.STMTreeNode;
 import org.jkiss.dbeaver.model.stm.STMUtils;
+import org.jkiss.utils.CommonUtils;
 
 import java.util.List;
 import java.util.Objects;
@@ -79,6 +80,28 @@ public class SQLQueryComplexName {
             this.stringParts.subList(0, this.parts.size() - 1),
             this.invalidPartsCount,
             this.parts.getLast() != null ? this.parts.getLast().getMemberAccess() : this.endingPeriodNode
+        );
+    }
+
+    @Nullable
+    public SQLQueryComplexName trimStart() {
+        return this.parts.size() < 2 ? null : new SQLQueryComplexName(
+            this.syntaxNode,
+            this.parts.subList(1, this.parts.size()),
+            this.stringParts.subList(1, this.parts.size()),
+            this.invalidPartsCount,
+            this.endingPeriodNode
+        );
+    }
+
+    @NotNull
+    public SQLQueryComplexName prepend(SQLQuerySymbolEntry entry) {
+        return new SQLQueryComplexName(
+            this.syntaxNode,
+            STMUtils.combineLists(List.of(entry), this.parts),
+            STMUtils.combineLists(List.of(entry.getName()), this.stringParts),
+            this.invalidPartsCount,
+            this.endingPeriodNode
         );
     }
 

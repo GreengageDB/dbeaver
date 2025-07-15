@@ -157,8 +157,8 @@ public class SQLQueryRowsTableDataModel extends SQLQueryRowsSourceModel
         this.table = obj instanceof DBSEntity e && (obj instanceof DBSTable || obj instanceof DBSView) ? e : null;
 
         if (this.table != null) {
-            context = context.reset().appendSource(this, name, this.table);
             SQLQuerySemanticUtils.setNamePartsDefinition(this.name, refTarget, SQLQuerySymbolClass.TABLE, rowsetRefOrigin);
+            context = context.reset().appendSource(this, name, this.table);
         } else {
             SQLQuerySymbolClass tableSymbolClass = statistics.isTreatErrorsAsWarnings()
                 ? SQLQuerySymbolClass.TABLE
@@ -172,7 +172,7 @@ public class SQLQueryRowsTableDataModel extends SQLQueryRowsSourceModel
                 tableSymbolClass
             );
             context = context.resetAsUnresolved();
-            if (candidates.isEmpty()) {
+            if (candidates.isEmpty() || (candidates.size() == 1 && table != null)) {
                 statistics.appendError(this.name.syntaxNode, "Table " + this.name.getNameString() + " not found");
             }
         }

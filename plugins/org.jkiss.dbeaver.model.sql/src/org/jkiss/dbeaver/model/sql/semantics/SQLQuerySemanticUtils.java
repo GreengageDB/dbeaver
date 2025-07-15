@@ -71,7 +71,9 @@ public class SQLQuerySemanticUtils {
         for (int len = namePartsCount; len > 0 && object == null; len--) {
             fragmentStrings = name.stringParts.subList(0, len);
             List<? extends DBSObject> objs = context.getConnectionInfo()
-                .findRealObjects(statistics.getMonitor(), RelationalObjectType.TYPE_UNKNOWN, fragmentStrings);
+                .findRealObjects(statistics.getMonitor(), RelationalObjectType.TYPE_UNKNOWN, fragmentStrings).stream()
+                .filter(o -> objectTypes.stream().anyMatch(t -> t.getTypeClass().isAssignableFrom(o.getClass())))
+                .toList();
             if (objs.size() == 1) {
                 object = objs.getFirst();
             } else if (objs.size() > 1) {
@@ -151,7 +153,7 @@ public class SQLQuerySemanticUtils {
     }
 
     @NotNull
-    private static SQLQuerySymbolClass inferSymbolClass(@NotNull DBSObject object) {
+    public static SQLQuerySymbolClass inferSymbolClass(@NotNull DBSObject object) {
         SQLQuerySymbolClass objectNameClass;
         if (object instanceof DBSTable || object instanceof DBSView) {
             objectNameClass = SQLQuerySymbolClass.TABLE;

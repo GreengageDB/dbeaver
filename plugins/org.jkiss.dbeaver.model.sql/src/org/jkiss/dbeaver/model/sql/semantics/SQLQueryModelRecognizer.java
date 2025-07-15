@@ -204,17 +204,17 @@ public class SQLQueryModelRecognizer {
             new SQLQueryRowsSourceContext(connectionContext), Set.of(RelationalObjectType.TYPE_UNKNOWN), true
         );
         Map<SQLQueryComplexName, SQLQueryComplexName> allTableNames = new HashMap<>();
+        Set<String> allTableAliases = new HashSet<>();
+        LinkedList<SQLQuerySymbolEntry> allMaybeColumns = new LinkedList<>();
+        LinkedList<SQLQueryComplexName> allValueRefs = new LinkedList<>();
+
         this.traverseForIdentifiers(
             tree,
-            (c) -> {
-                if (c.isNotClassified() && !tryFallbackForStringLiteral.test(c)) {
-                    c.getSymbol().setSymbolClass(SQLQuerySymbolClass.COLUMN);
-                }
-            },
-            e -> {
-                if (e.isNotClassified() || !tryFallbackForStringLiteral.test(e.parts.getLast())) {
+            allMaybeColumns::add,
+            entityName -> {
+                if (entityName.isNotClassified() || !tryFallbackForStringLiteral.test(entityName.parts.getLast())) {
                     if (!this.recognitionContext.useRealMetadata() || connectionContext.isDummy()) {
-                        for (SQLQuerySymbolEntry part : e.parts) {
+                        for (SQLQuerySymbolEntry part : entityName.parts) {
                             if (part != null) {
                                 part.getSymbol().setSymbolClass(SQLQuerySymbolClass.TABLE);
                             }
@@ -223,56 +223,74 @@ public class SQLQueryModelRecognizer {
                         SQLQuerySemanticUtils.performPartialResolution(
                             rootRowsContext,
                             this.recognitionContext,
-                            e,
+                            entityName,
                             objectNameOrigin,
                             Set.of(RelationalObjectType.TYPE_UNKNOWN),
                             SQLQuerySymbolClass.OBJECT
                         );
                     }
                 }
-                allTableNames.put(e, e);
-                return null;
+                allTableNames.put(entityName, entityName);
             },
-            r -> {
-                SQLQueryComplexName part = r;
-                while (!part.parts.isEmpty()) {
-                    SQLQueryComplexName table = allTableNames.get(part);
-                    if (table != null) {
-                        for (int i = 0; i < part.parts.size(); i++) {
-                            SQLQuerySymbolEntry a = part.parts.get(i);
-                            SQLQuerySymbolEntry b = table.parts.get(i);
-                            if (a != null && b != null) {
-                                a.setDefinition(b.getDefinition());
-                                a.setOrigin(b.getOrigin());
-                                if (a.isNotClassified()) {
-                                    a.getSymbol().setSymbolClass(b.getSymbolClass());
-                                }
-                            }
-                        }
-                        break;
-                    }
-                    part = part.trimEnd();
-                }
-                for (SQLQuerySymbolEntry column : r.parts.subList(part.parts.size(), r.parts.size())) {
-                    column.getSymbol().setSymbolClass(SQLQuerySymbolClass.COLUMN);
-                }
+            allValueRefs::addLast,
+            aliasEntry -> {
+                aliasEntry.getSymbol().setSymbolClass(SQLQuerySymbolClass.TABLE_ALIAS);
+                allTableAliases.add(aliasEntry.getName().toLowerCase());
             },
             true
         );
-        symbolEntries.clear();
+        for (SQLQueryComplexName valueRef : allValueRefs) {
+            SQLQueryComplexName prefix = valueRef;
+            while (prefix != null && !prefix.parts.isEmpty()) {
+                SQLQueryComplexName table = allTableNames.get(prefix);
+                if (table != null) {
+                    for (int i = 0; i < prefix.parts.size(); i++) {
+                        SQLQuerySymbolEntry a = prefix.parts.get(i);
+                        SQLQuerySymbolEntry b = table.parts.get(i);
+                        if (a != null && b != null) {
+                            a.setDefinition(b.getDefinition());
+                            a.setOrigin(b.getOrigin());
+                            if (a.isNotClassified()) {
+                                a.getSymbol().setSymbolClass(b.getSymbolClass());
+                            }
+                        }
+                    }
+                    break;
+                }
+                prefix = prefix.trimEnd();
+            }
+            List<SQLQuerySymbolEntry> tail;
+            if (prefix == null && valueRef.parts.size() > 1 && valueRef.parts.getFirst() != null && allTableAliases.contains(valueRef.parts.getFirst().getName().toLowerCase())) {
+                valueRef.parts.getFirst().getSymbol().setSymbolClass(SQLQuerySymbolClass.TABLE_ALIAS);
+                tail = valueRef.parts.subList(1, valueRef.parts.size());
+            } else {
+                tail = valueRef.parts.subList(prefix == null ? 0 : prefix.parts.size(), valueRef.parts.size());
+            }
+            for (SQLQuerySymbolEntry column : tail) {
+                if (column != null) {
+                    column.getSymbol().setSymbolClass(SQLQuerySymbolClass.COLUMN);
+                }
+            }
+        }
+        for (SQLQuerySymbolEntry maybeColumn : allMaybeColumns) {
+            if (maybeColumn.isNotClassified() && !tryFallbackForStringLiteral.test(maybeColumn)) {
+                maybeColumn.getSymbol().setSymbolClass(SQLQuerySymbolClass.COLUMN);
+            }
+        }
     }
 
     private void traverseForIdentifiers(
         @NotNull STMTreeNode root,
         @NotNull Consumer<SQLQuerySymbolEntry> columnAction,
-        @NotNull Function<SQLQueryComplexName, DBSEntity> entityAction,
+        @NotNull Consumer<SQLQueryComplexName> entityAction,
         @NotNull Consumer<SQLQueryComplexName> valueRefAction,
+        @NotNull Consumer<SQLQuerySymbolEntry> entityAliasAction,
         boolean forceUnquotted
     ) {
         List<STMTreeNode> refs = STMUtils.expandSubtree(
             root,
             null,
-            Set.of(STMKnownRuleNames.columnReference, STMKnownRuleNames.columnName, STMKnownRuleNames.tableName)
+            Set.of(STMKnownRuleNames.columnReference, STMKnownRuleNames.columnName, STMKnownRuleNames.tableName, STMKnownRuleNames.correlationName)
         );
         for (STMTreeNode ref : refs) {
             switch (ref.getNodeKindId()) {
@@ -284,8 +302,8 @@ public class SQLQueryModelRecognizer {
                 }
                 case SQLStandardParser.RULE_columnReference -> {
                     SQLQueryValueExpression expr = this.collectColumnReferenceExpression(ref, false);
-                    if (expr instanceof SQLQueryValueTupleReferenceExpression tulpeRef) {
-                        entityAction.apply(tulpeRef.getTableName());
+                    if (expr instanceof SQLQueryValueTupleReferenceExpression tupleRef) {
+                        entityAction.accept(tupleRef.getTableName());
                     } else if (expr instanceof SQLQueryValueColumnReferenceExpression columnRef) {
                         columnAction.accept(columnRef.getColumnName());
                     } else if (expr instanceof SQLQueryValueReferenceExpression valueRef && valueRef.getName() != null) {
@@ -300,7 +318,13 @@ public class SQLQueryModelRecognizer {
                 case SQLStandardParser.RULE_tableName -> {
                     SQLQueryComplexName tableName = this.collectTableName(ref, forceUnquotted);
                     if (tableName != null) {
-                        entityAction.apply(tableName);
+                        entityAction.accept(tableName);
+                    }
+                }
+                case SQLStandardParser.RULE_correlationName -> {
+                    SQLQuerySymbolEntry entityAlias = this.collectIdentifier(ref, forceUnquotted, null);
+                    if (entityAlias != null) {
+                        entityAliasAction.accept(entityAlias);
                     }
                 }
                 default -> throw new IllegalArgumentException("Unexpected value: " + ref.getNodeName());
@@ -350,13 +374,12 @@ public class SQLQueryModelRecognizer {
             Set<List<String>> allTableNames = new HashSet<>();
             this.traverseForIdentifiers(
                 root,
-                (c) -> allColumnNames.add(c.getName()),
-                e -> {
-                    allTableNames.add(e.stringParts);
-                    return null;
-                },
-                r -> { },
-                true);
+                (columnName) -> allColumnNames.add(columnName.getName()),
+                entityName -> allTableNames.add(entityName.stringParts),
+                valueRef -> { },
+                columnAlias -> { },
+                true
+            );
             symbolEntries.clear();
             return new SQLQueryConnectionDummyContext(this.dialect, allColumnNames, allTableNames);
         }

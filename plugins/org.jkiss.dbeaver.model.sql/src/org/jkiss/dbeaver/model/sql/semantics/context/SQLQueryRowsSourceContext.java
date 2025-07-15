@@ -19,15 +19,18 @@ package org.jkiss.dbeaver.model.sql.semantics.context;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBPDataSource;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.sql.SQLDialect;
-import org.jkiss.dbeaver.model.sql.semantics.SQLQueryComplexName;
-import org.jkiss.dbeaver.model.sql.semantics.SQLQuerySymbol;
-import org.jkiss.dbeaver.model.sql.semantics.SQLQuerySymbolEntry;
+import org.jkiss.dbeaver.model.sql.SQLUtils;
+import org.jkiss.dbeaver.model.sql.semantics.*;
+import org.jkiss.dbeaver.model.sql.semantics.completion.SQLQueryCompletionTextProvider;
 import org.jkiss.dbeaver.model.sql.semantics.model.SQLQueryMemberAccessEntry;
 import org.jkiss.dbeaver.model.sql.semantics.model.select.SQLQueryRowsSourceModel;
 import org.jkiss.dbeaver.model.stm.STMUtils;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.DBSStructContainer;
 import org.jkiss.utils.Pair;
 
 import java.util.*;
@@ -197,7 +200,7 @@ public class SQLQueryRowsSourceContext {
                 putAll(other.sourcesByLoweredAlias);
                 putAll(SQLQueryRowsSourceContext.this.sourcesByLoweredAlias);
             }
-        });
+        }, this.hasUnresolvedSource || other.hasUnresolvedSource);
     }
 
     /**
@@ -206,15 +209,28 @@ public class SQLQueryRowsSourceContext {
     @NotNull
     public final SQLQueryRowsSourceContext appendSource(
         @NotNull SQLQueryRowsSourceModel source,
-        @NotNull SQLQueryComplexName name,
+        @NotNull SQLQueryComplexName classifiedName,
         @Nullable DBSEntity tableOrNull
     ) {
-        return this.setRowsSources(new HashMap<>() {
-            {
-                putAll(SQLQueryRowsSourceContext.this.rowsSources);
-                put(name, new SourceResolutionResult(source, name, tableOrNull, null));
+        SourceResolutionResult srr = new SourceResolutionResult(source, classifiedName, tableOrNull, null);
+
+        Map<SQLQueryComplexName, SourceResolutionResult> rowsSources = new HashMap<>(this.rowsSources);
+        rowsSources.put(classifiedName, srr);
+
+        if (tableOrNull != null && classifiedName.parts.getFirst().getDefinition() instanceof SQLQuerySymbolByDbObjectDefinition subparent) {
+            for (SQLQueryComplexName nameFragment = classifiedName.trimStart(); nameFragment != null; nameFragment = nameFragment.trimStart()) {
+                rowsSources.put(nameFragment, srr);
             }
-        }, this.sourcesByLoweredAlias);
+            SQLQueryComplexName synthesizedName = classifiedName;
+            for (DBSObject o = subparent.getDbObject().getParentObject(); o != null && !(o instanceof DBPDataSource); o = o.getParentObject()) {
+                String canonicalName = SQLUtils.identifierToCanonicalForm(this.connectionInfo.dialect, o.getName(), false, true);
+                SQLQuerySymbolEntry entry = new SQLQuerySymbolEntry(classifiedName.syntaxNode, canonicalName, o.getName(), null);
+                entry.setDefinition(new SQLQuerySymbolByDbObjectDefinition(o, SQLQuerySemanticUtils.inferSymbolClass(o)));
+                synthesizedName = synthesizedName.prepend(entry);
+                rowsSources.put(synthesizedName, srr);
+            }
+        }
+        return this.setRowsSources(rowsSources, this.sourcesByLoweredAlias, this.hasUnresolvedSource);
     }
 
     /**
@@ -226,20 +242,15 @@ public class SQLQueryRowsSourceContext {
         DBSEntity oldEntryTable = oldEntry == null ? null : oldEntry.tableOrNull;
         SourceResolutionResult newEntry = new SourceResolutionResult(newSource, null, oldEntryTable, alias.getSymbol());
 
-        return this.setRowsSources(new HashMap<>() {
-            {
-                putAll(SQLQueryRowsSourceContext.this.rowsSources);
-                if (oldEntry != null) {
-                    remove(oldEntry.referenceName, oldEntry);
-                }
-                //put(new SQLQueryComplexName(alias.getSyntaxNode(), List.of(alias), 0, null), newEntry);
-            }
-        }, new HashMap<>() {
-            {
+        return this.setRowsSources(
+            this.rowsSources.entrySet().stream()
+                .filter(e -> e.getValue().source == oldSource)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)),
+            new HashMap<>() {{
                 putAll(SQLQueryRowsSourceContext.this.sourcesByLoweredAlias);
                 put(alias.getName().toLowerCase(), newEntry);
-            }
-        });
+            }}, this.hasUnresolvedSource
+        );
     }
 
     /**
@@ -376,11 +387,12 @@ public class SQLQueryRowsSourceContext {
     @NotNull
     private SQLQueryRowsSourceContext setRowsSources(
         @NotNull Map<SQLQueryComplexName, SourceResolutionResult> rowsSources,
-        @NotNull Map<String, SourceResolutionResult> sourcesByLoweredAlias
+        @NotNull Map<String, SourceResolutionResult> sourcesByLoweredAlias,
+        boolean hasUnresolvedSource
     ) {
         return new SQLQueryRowsSourceContext(
             this.connectionInfo,
-            this.hasUnresolvedSource,
+            hasUnresolvedSource,
             rowsSources,
             this.dynamicTableSources,
             sourcesByLoweredAlias
