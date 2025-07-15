@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2024 DBeaver Corp and others
+ * Copyright (C) 2010-2025 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,32 +16,33 @@
  */
 package org.jkiss.dbeaver.ui.navigator.database.load;
 
+import org.eclipse.jface.viewers.IToolTipProvider;
+import org.eclipse.swt.graphics.Image;
 import org.jkiss.code.NotNull;
-import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
 import org.jkiss.dbeaver.model.navigator.DBNNode;
 import org.jkiss.dbeaver.ui.internal.UINavigatorMessages;
-import org.jkiss.dbeaver.ui.navigator.actions.NavigatorHandlerFilterConfig;
-import org.jkiss.dbeaver.ui.navigator.database.DatabaseNavigatorTree;
 
 /**
- * A special node that allows for a parent local filter to be configured.
+ * A special node that is shown when a global or local filter is applied to a parent node.
  */
-public class TreeNodeFilterConfigurator extends TreeNodeFilteredNote {
+public class TreeNodeFilteredNote extends TreeNodeSpecial implements IToolTipProvider {
 
-    public TreeNodeFilterConfigurator(@NotNull DBNNode parent) {
+    public TreeNodeFilteredNote(@NotNull DBNNode parent) {
         super(parent);
     }
 
     @Override
-    public String getToolTipText(Object element) {
-        return UINavigatorMessages.navigator_filtered_nodes_tip;
+    public String getText(Object element) {
+        return UINavigatorMessages.navigator_filtered_nodes_text;
     }
 
     @Override
-    public boolean handleDefaultAction(DatabaseNavigatorTree tree) {
-        if (getParent() instanceof DBNDatabaseNode dbNode) {
-            NavigatorHandlerFilterConfig.configureFilters(tree.getShell(), dbNode);
-        }
-        return true;
+    public String getToolTipText(Object element) {
+        return UINavigatorMessages.navigator_globally_filtered_nodes_tip;
+    }
+
+    @Override
+    public Image getImage(Object element) {
+        return null;
     }
 }

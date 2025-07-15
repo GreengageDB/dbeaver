@@ -142,7 +142,7 @@ public class DatabaseNavigatorContentProvider implements IStructuredContentProvi
     }
 
     @NotNull
-    private static Object[] getFinalNodes(@NotNull DBNNode parent, @NotNull DBNNode[] children) {
+    private Object[] getFinalNodes(@NotNull DBNNode parent, @NotNull DBNNode[] children) {
         final int maxFetchSize = Math.max(
             NavigatorPreferences.MIN_LONG_LIST_FETCH_SIZE,
             DBWorkbench.getPlatform().getPreferenceStore().getInt(NavigatorPreferences.NAVIGATOR_LONG_LIST_FETCH_SIZE)
@@ -165,6 +165,11 @@ public class DatabaseNavigatorContentProvider implements IStructuredContentProvi
             return nodes.toArray();
         } else if (children.length == 0) {
             return EMPTY_CHILDREN;
+        } else if (navigatorTree.isFilterActive() && navigatorTree.isMatchingNeeded(children[0])) {
+            final List<Object> nodes = new ArrayList<>();
+            nodes.add(new TreeNodeFilteredNote(parent));
+            nodes.addAll(List.of(children));
+            return nodes.toArray();
         } else {
             return children;
         }
