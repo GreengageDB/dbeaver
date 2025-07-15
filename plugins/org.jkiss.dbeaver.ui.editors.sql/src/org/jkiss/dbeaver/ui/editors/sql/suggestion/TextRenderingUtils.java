@@ -195,25 +195,4 @@ public class TextRenderingUtils {
 
         return suggestion;
     }
-
-    /**
-     * Check if the text contains whitespace or linebreak at the specified position
-     */
-    public static boolean isSpaceOrNewLineAtPosition(@NotNull String text, int position) {
-        return text.charAt(position) == ' ' || text.charAt(position) == '\n' || text.charAt(position) == '\r';
-    }
-
-    @NotNull
-    public static String getWordUnderPosition(@NotNull String text, int position) {
-        int endPosition = position;
-        while (endPosition > 0 && endPosition <= text.length() - 1 && text.charAt(endPosition) != ' ') {
-            endPosition++;
-        }
-        int startPosition = position;
-        while (startPosition > 0 && text.charAt(startPosition) != ' ') {
-            startPosition--;
-        }
-        return text.substring(startPosition, endPosition);
-    }
-
 }
