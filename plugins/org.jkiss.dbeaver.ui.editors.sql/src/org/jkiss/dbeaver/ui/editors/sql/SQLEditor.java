@@ -3590,8 +3590,9 @@ public class SQLEditor extends SQLEditorBase implements
 
         updateDirtyFlag();
 
+        IFile fileFromInput = EditorUtils.getFileFromInput(this.getEditorInput());
         if (getActivePreferenceStore().getBoolean(SQLPreferenceConstants.AUTO_SAVE_ON_CLOSE)
-            && EditorUtils.getFileFromInput(this.getEditorInput()).isSynchronized(0)
+            && (fileFromInput == null || fileFromInput.isSynchronized(0))
         ) {
             return ISaveablePart2.YES;
         }
