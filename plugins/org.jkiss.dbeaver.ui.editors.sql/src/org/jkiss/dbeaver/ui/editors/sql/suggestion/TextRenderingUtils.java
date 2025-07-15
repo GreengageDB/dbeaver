@@ -23,7 +23,6 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.graphics.*;
 import org.eclipse.swt.widgets.Event;
-import org.jkiss.code.NotNull;
 import org.jkiss.utils.CommonUtils;
 
 public class TextRenderingUtils {
