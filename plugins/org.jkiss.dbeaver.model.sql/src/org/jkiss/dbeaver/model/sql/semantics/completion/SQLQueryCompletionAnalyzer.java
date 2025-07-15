@@ -26,7 +26,7 @@ import org.jkiss.dbeaver.model.runtime.DBRRunnableParametrized;
 import org.jkiss.dbeaver.model.sql.completion.SQLCompletionAnalyzer;
 import org.jkiss.dbeaver.model.sql.completion.SQLCompletionContext;
 import org.jkiss.dbeaver.model.sql.completion.SQLCompletionRequest;
-import org.jkiss.dbeaver.model.sql.semantics.context.SQLQueryDummyDataSourceContext;
+import org.jkiss.dbeaver.model.sql.semantics.context.SQLQueryConnectionDummyContext;
 import org.jkiss.dbeaver.model.stm.LSMInspections;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.utils.Pair;
@@ -117,7 +117,7 @@ public class SQLQueryCompletionAnalyzer implements DBRRunnableParametrized<DBRPr
         Set<String> texts = new HashSet<>();
         for (SQLQueryCompletionSet completionSet : completionSets) {
             for (SQLQueryCompletionItem item : completionSet.getItems()) {
-                DBSObject object = SQLQueryDummyDataSourceContext.isDummyObject(item.getObject()) ? null : item.getObject();
+                DBSObject object = SQLQueryConnectionDummyContext.isDummyObject(item.getObject()) ? null : item.getObject();
                 String text = item.apply(textProvider);
                 if (texts.add(text)) {
                     String decoration = item.apply(SQLQueryCompletionExtraTextProvider.INSTANCE);
