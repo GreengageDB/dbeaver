@@ -30,8 +30,8 @@ import org.eclipse.ui.internal.e4.compatibility.CompatibilityEditor;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.model.DBPContextProvider;
-import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
+import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.DBPDataSourceContainerProvider;
 import org.jkiss.dbeaver.ui.UIStyles;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.editors.IDatabaseEditorInput;
@@ -129,10 +129,10 @@ public final class DBeaverCTabFolderRenderer extends CTabRendering {
 
     @Nullable
     private static Color getConnectionColor(@NotNull IEditorPart editorPart) {
-        if (editorPart instanceof DBPContextProvider provider) {
-            DBCExecutionContext context = provider.getExecutionContext();
-            if (context != null) {
-                return UIUtils.getConnectionColor(context.getDataSource().getContainer().getConnectionConfiguration());
+        if (editorPart instanceof DBPDataSourceContainerProvider provider) {
+            DBPDataSourceContainer container = provider.getDataSourceContainer();
+            if (container != null) {
+                return UIUtils.getConnectionColor(container.getConnectionConfiguration());
             }
         }
 
