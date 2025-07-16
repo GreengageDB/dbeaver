@@ -57,10 +57,16 @@ public class PostgreArrayValueHandler extends JDBCArrayValueHandler {
     }
 
     @Override
-    public Object getValueFromObject(@NotNull DBCSession session, @NotNull DBSTypedObject type, Object object, boolean copy, boolean validateValue) throws DBCException
-    {
+    public Object getValueFromObject(
+        @NotNull DBCSession session,
+        @NotNull DBSTypedObject type,
+        Object object,
+        boolean copy,
+        boolean validateValue
+    ) throws DBCException {
         if (object != null) {
-            final PostgreDataType arrayType = PostgreUtils.findDataType(session, (PostgreDataSource) session.getDataSource(), type);
+            PostgreDataSource dataSource = (PostgreDataSource) session.getDataSource();
+            final PostgreDataType arrayType = PostgreUtils.findDataType(session, dataSource, type);
             if (arrayType == null) {
                 throw new DBCException("Can't resolve data type " + type.getFullTypeName());
             }
@@ -71,38 +77,37 @@ public class PostgreArrayValueHandler extends JDBCArrayValueHandler {
             }
 
             String className = object.getClass().getName();
-            PostgreServerExtension postgreServerExtension = PostgreUtils.getPostgreServerExtension(object);
+            PostgreServerExtension postgreServerExtension = PostgreUtils.getPostgreServerExtension(dataSource);
             boolean isPgObject = postgreServerExtension != null && postgreServerExtension.isPGObject(object);
             if (object instanceof String ||
                 isPgObject ||
-                className.equals(PostgreConstants.PG_ARRAY_CLASS))
-            {
+                className.equals(PostgreConstants.PG_ARRAY_CLASS)) {
                 if (className.equals(PostgreConstants.PG_ARRAY_CLASS)) {
                     // Convert arrays to string representation (#7468)
                     // Otherwise we may have problems with domain types decoding (as they come in form of PgObject)
                     String strValue = object.toString();
                     return convertStringArrayToCollection(session, arrayType, itemType, strValue);
                 } else if (isPgObject) {
-                    final Object value = PostgreUtils.extractPGObjectValue(object);
-                    if (value instanceof String) {
-                        return convertStringArrayToCollection(session, arrayType, itemType, (String) value);
+                    final Object value = PostgreUtils.extractPGObjectValue(object, dataSource);
+                    if (value instanceof String stringValue) {
+                        return convertStringArrayToCollection(session, arrayType, itemType, stringValue);
                     } else {
                         log.error("Can't parse array");
                         return new JDBCCollection(
-                                session.getProgressMonitor(), itemType,
+                            session.getProgressMonitor(), itemType,
                             DBUtils.findValueHandler(session, itemType),
-                            value == null ? null : new Object[]{value}
+                            value == null ? null : new Object[] {value}
                         );
                     }
                 } else {
                     return convertStringArrayToCollection(session, arrayType, itemType, (String) object);
                 }
-            } else if (object instanceof Object[]) {
+            } else if (object instanceof Object[] objects) {
                 return new JDBCCollection(
                     session.getProgressMonitor(),
                     itemType,
                     DBUtils.findValueHandler(session, itemType),
-                    (Object[]) object
+                    objects
                 );
             }
         }

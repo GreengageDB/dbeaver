@@ -78,9 +78,15 @@ public class PostgreStructValueHandler extends JDBCStructValueHandler {
     }
 
     @Override
-    public Object getValueFromObject(@NotNull DBCSession session, @NotNull DBSTypedObject type, Object object, boolean copy, boolean validateValue) throws DBCException
-    {
-        PostgreDataType structType = PostgreUtils.findDataType(session, (PostgreDataSource)session.getDataSource(), type);
+    public Object getValueFromObject(
+        @NotNull DBCSession session,
+        @NotNull DBSTypedObject type,
+        Object object,
+        boolean copy,
+        boolean validateValue
+    ) throws DBCException {
+        PostgreDataSource dataSource = (PostgreDataSource) session.getDataSource();
+        PostgreDataType structType = PostgreUtils.findDataType(session, dataSource, type);
         if (structType == null) {
             log.debug("Can't resolve struct type '" + type.getTypeName() + "'");
             return object;
@@ -92,14 +98,14 @@ public class PostgreStructValueHandler extends JDBCStructValueHandler {
         try {
             if (object == null) {
                 return new JDBCCompositeStatic(session, structType, null);
-            } else if (object instanceof JDBCCompositeStatic) {
-                return copy ? ((JDBCCompositeStatic) object).cloneValue(session.getProgressMonitor()) : object;
+            } else if (object instanceof JDBCCompositeStatic jdbcCompositeStatic) {
+                return copy ? jdbcCompositeStatic.cloneValue(session.getProgressMonitor()) : object;
             } else {
                 Object value;
-                PostgreServerExtension postgreServerExtension = PostgreUtils.getPostgreServerExtension(object);
+                PostgreServerExtension postgreServerExtension = PostgreUtils.getPostgreServerExtension(dataSource);
                 boolean isPgObject = postgreServerExtension != null && postgreServerExtension.isPGObject(object);
                 if (isPgObject) {
-                    value = PostgreUtils.extractPGObjectValue(object);
+                    value = PostgreUtils.extractPGObjectValue(object, dataSource);
                 } else {
                     value = object.toString();
                 }

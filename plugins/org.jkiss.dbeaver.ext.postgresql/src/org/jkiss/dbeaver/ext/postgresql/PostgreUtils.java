@@ -121,11 +121,12 @@ public class PostgreUtils {
         return null;
     }
 
-    public static Object extractPGObjectValue(Object pgObject) {
+    @Nullable
+    public static Object extractPGObjectValue(@Nullable Object pgObject, @Nullable DBPDataSource dataSource) {
         if (pgObject == null) {
             return null;
         }
-        PostgreServerExtension postgreServerExtension = getPostgreServerExtension(pgObject);
+        PostgreServerExtension postgreServerExtension = getPostgreServerExtension(dataSource);
         if (postgreServerExtension == null || !postgreServerExtension.isPGObject(pgObject)) {
             return pgObject;
         }
@@ -163,8 +164,8 @@ public class PostgreUtils {
         return null;
     }
 
-    public static long[] getIdVector(Object pgObject) {
-        Object pgVector = extractPGObjectValue(pgObject);
+    public static long[] getIdVector(@Nullable Object pgObject, @Nullable DBPDataSource dataSource) {
+        Object pgVector = extractPGObjectValue(pgObject, dataSource);
         if (pgVector == null) {
             return null;
         }
@@ -215,8 +216,8 @@ public class PostgreUtils {
         }
     }
 
-    public static int[] getIntVector(Object pgObject) {
-        Object pgVector = extractPGObjectValue(pgObject);
+    public static int[] getIntVector(@Nullable Object pgObject, @Nullable DBPDataSource dataSource) {
+        Object pgVector = extractPGObjectValue(pgObject, dataSource);
         if (pgVector == null) {
             return null;
         }
@@ -784,7 +785,7 @@ public class PostgreUtils {
         String[] aclValues = new String[aclValuesCount];
         for (int i = 0; i < aclValuesCount; i++) {
             Object aclItem = Array.get(itemArray, i);
-            String aclValue = CommonUtils.toString(extractPGObjectValue(aclItem));
+            String aclValue = CommonUtils.toString(extractPGObjectValue(aclItem, owner.getDataSource()));
             // Quoted role names are stored with escaped quotes. We don't need quotes here (#13477)
             aclValue = aclValue.replace("\\\"", "\"");
             aclValues[i] = aclValue;
@@ -1057,42 +1058,14 @@ public class PostgreUtils {
     }
 
     @Nullable
-    public static PostgreServerExtension getPostgreServerExtension(@Nullable Object object) {
-        if (object == null) {
+    public static PostgreServerExtension getPostgreServerExtension(@Nullable DBPDataSource dataSource) {
+        if (dataSource == null) {
             return null;
         }
 
-        if (object instanceof PostgreServerExtension postgreServerExtension) {
-            return postgreServerExtension;
+        if (dataSource instanceof PostgreDataSource postgreDataSource) {
+            return postgreDataSource.getServerType();
         }
-
-        try {
-            if (object instanceof DBSObject dbsObject) {
-                DBPDataSource dataSource = dbsObject.getDataSource();
-                if (dataSource instanceof PostgreDataSource postgreDataSource) {
-                    return postgreDataSource.getServerType();
-                }
-            }
-        } catch (Exception ignored) {
-            // ignored
-        }
-
-
-        try {
-            if (object instanceof DBSObject dbsObject) {
-                DBCExecutionContext context = DBUtils.getDefaultContext(dbsObject, false);
-                if (context != null) {
-                    DBPDataSource dataSource = context.getDataSource();
-                    if (dataSource instanceof PostgreDataSource postgreDataSource) {
-                        return postgreDataSource.getServerType();
-                    }
-                }
-            }
-        } catch (Exception ignored) {
-            // ignored
-        }
-
         return null;
     }
-
 }

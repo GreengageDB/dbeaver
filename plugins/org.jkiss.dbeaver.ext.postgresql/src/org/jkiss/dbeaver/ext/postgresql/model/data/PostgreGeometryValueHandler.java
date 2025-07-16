@@ -21,6 +21,7 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.data.gis.handlers.WKGUtils;
 import org.jkiss.dbeaver.ext.postgresql.PostgreConstants;
 import org.jkiss.dbeaver.ext.postgresql.PostgreUtils;
+import org.jkiss.dbeaver.ext.postgresql.model.PostgreDataSource;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreServerExtension;
 import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
 import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
@@ -106,24 +107,25 @@ public class PostgreGeometryValueHandler extends JDBCAbstractValueHandler {
 
     @Override
     public Object getValueFromObject(@NotNull DBCSession session, @NotNull DBSTypedObject type, Object object, boolean copy, boolean validateValue) throws DBCException {
-        PostgreServerExtension postgreServerExtension = PostgreUtils.getPostgreServerExtension(object);
+        PostgreDataSource dataSource = (PostgreDataSource) session.getDataSource();
+        PostgreServerExtension postgreServerExtension = PostgreUtils.getPostgreServerExtension(dataSource);
         boolean isPgObject = postgreServerExtension != null && postgreServerExtension.isPGObject(object);
         if (object == null) {
             return new DBGeometry();
-        } else if (object instanceof DBGeometry) {
+        } else if (object instanceof DBGeometry dbGeometry) {
             if (copy) {
-                return ((DBGeometry) object).copy();
+                return dbGeometry.copy();
             } else {
                 return object;
             }
-        } else if (object instanceof Geometry) {
-            return new DBGeometry((Geometry) object);
-        } else if (object instanceof String) {
-            return makeGeometryFromWKT(session, (String) object);
+        } else if (object instanceof Geometry geometry) {
+            return new DBGeometry(geometry);
+        } else if (object instanceof String value) {
+            return makeGeometryFromWKT(session, value);
         } else if (object.getClass().getName().equals(PostgreConstants.PG_GEOMETRY_CLASS)) {
             return makeGeometryFromPGGeometry(session, object);
         } else if (isPgObject) {
-            return makeGeometryFromWKT(session, CommonUtils.toString(PostgreUtils.extractPGObjectValue(object)));
+            return makeGeometryFromWKT(session, CommonUtils.toString(PostgreUtils.extractPGObjectValue(object, dataSource)));
         } else {
             return makeGeometryFromWKT(session, object.toString());
         }
