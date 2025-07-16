@@ -126,8 +126,7 @@ public class PostgreUtils {
         if (pgObject == null) {
             return null;
         }
-        PostgreServerExtension postgreServerExtension = getPostgreServerExtension(dataSource);
-        if (postgreServerExtension == null || !postgreServerExtension.isPGObject(pgObject)) {
+        if (!isPgObject(dataSource, pgObject)) {
             return pgObject;
         }
         try {
@@ -1057,15 +1056,14 @@ public class PostgreUtils {
         return lastPos;
     }
 
-    @Nullable
-    public static PostgreServerExtension getPostgreServerExtension(@Nullable DBPDataSource dataSource) {
+    public static boolean isPgObject(@Nullable DBPDataSource dataSource, @Nullable Object object) {
         if (dataSource == null) {
-            return null;
+            return false;
         }
 
         if (dataSource instanceof PostgreDataSource postgreDataSource) {
-            return postgreDataSource.getServerType();
+            return postgreDataSource.getServerType().isPGObject(object);
         }
-        return null;
+        return false;
     }
 }

@@ -24,7 +24,6 @@ import org.jkiss.dbeaver.ext.postgresql.PostgreUtils;
 import org.jkiss.dbeaver.ext.postgresql.PostgreValueParser;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreDataSource;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreDataType;
-import org.jkiss.dbeaver.ext.postgresql.model.PostgreServerExtension;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.data.DBDCollection;
 import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
@@ -77,8 +76,7 @@ public class PostgreArrayValueHandler extends JDBCArrayValueHandler {
             }
 
             String className = object.getClass().getName();
-            PostgreServerExtension postgreServerExtension = PostgreUtils.getPostgreServerExtension(dataSource);
-            boolean isPgObject = postgreServerExtension != null && postgreServerExtension.isPGObject(object);
+            boolean isPgObject = PostgreUtils.isPgObject(dataSource, object);
             if (object instanceof String ||
                 isPgObject ||
                 className.equals(PostgreConstants.PG_ARRAY_CLASS)) {
