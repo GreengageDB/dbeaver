@@ -30,7 +30,10 @@ import org.eclipse.ui.internal.e4.compatibility.CompatibilityEditor;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.DBPDataSourceContainerProvider;
 import org.jkiss.dbeaver.ui.UIStyles;
+import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.editors.IDatabaseEditorInput;
 
 import java.lang.reflect.Field;
@@ -98,31 +101,48 @@ public final class DBeaverCTabFolderRenderer extends CTabRendering {
             return null;
         }
 
-        if (getEditorInput(part) instanceof IDatabaseEditorInput databaseEditorInput) {
-            return databaseEditorInput.getConnectionColor();
-        }
-
-        return null;
+        return getConnectionColor(part);
     }
 
     @Nullable
-    private static IEditorInput getEditorInput(@NotNull MPart part) {
+    private static Color getConnectionColor(@NotNull MPart part) {
         if (part.getObject() instanceof CompatibilityEditor editor) {
-            return editor.getEditor().getEditorInput();
+            return getConnectionColor(editor.getEditor());
         }
 
         // See org.eclipse.ui.internal.WorkbenchPartReference.WorkbenchPartReference
         if (part.getTransientData().get(IWorkbenchPartReference.class.getName()) instanceof IEditorReference ref) {
             IEditorPart editor = ref.getEditor(false);
             if (editor != null) {
-                return editor.getEditorInput();
+                return getConnectionColor(editor);
             }
 
             try {
-                return ref.getEditorInput();
+                return getConnectionColor(ref.getEditorInput());
             } catch (PartInitException e) {
                 log.debug("Cannot get editor input for part: " + part.getElementId(), e);
             }
+        }
+
+        return null;
+    }
+
+    @Nullable
+    private static Color getConnectionColor(@NotNull IEditorPart editorPart) {
+        if (editorPart instanceof DBPDataSourceContainerProvider provider) {
+            DBPDataSourceContainer container = provider.getDataSourceContainer();
+            if (container != null) {
+                return UIUtils.getConnectionColor(container.getConnectionConfiguration());
+            }
+        }
+
+        return getConnectionColor(editorPart.getEditorInput());
+    }
+
+    @Nullable
+    private static Color getConnectionColor(@NotNull IEditorInput editorInput) {
+        if (editorInput instanceof IDatabaseEditorInput databaseEditorInput) {
+            return databaseEditorInput.getConnectionColor();
         }
 
         return null;
