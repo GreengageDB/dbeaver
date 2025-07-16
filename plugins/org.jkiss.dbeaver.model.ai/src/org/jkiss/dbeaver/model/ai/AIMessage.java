@@ -20,7 +20,7 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.utils.CommonUtils;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /**
  * Represents a single AI message
@@ -33,7 +33,7 @@ public class AIMessage {
     @Nullable
     private final String displayMessage;
     @NotNull
-    private final LocalDateTime time;
+    private final Instant time;
 
     /**
      * Creates AI message
@@ -42,7 +42,7 @@ public class AIMessage {
         @NotNull AIMessageType role,
         @NotNull String content,
         @Nullable String displayMessage,
-        @NotNull LocalDateTime time
+        @NotNull Instant time
     ) {
         this.role = role;
         this.content = content;
@@ -72,11 +72,11 @@ public class AIMessage {
 
     @NotNull
     public static AIMessage userAutoMessage(@NotNull String prompt, @NotNull String uiMessage) {
-        return new AIMessage(AIMessageType.USER, prompt, uiMessage, LocalDateTime.now());
+        return new AIMessage(AIMessageType.USER, prompt, uiMessage, Instant.now());
     }
 
     public AIMessage(@NotNull AIMessageType role, @NotNull String content) {
-        this(role, content, content, LocalDateTime.now());
+        this(role, content, content, Instant.now());
     }
 
     @Override
@@ -107,7 +107,7 @@ public class AIMessage {
     }
 
     @NotNull
-    public LocalDateTime getTime() {
+    public Instant getTime() {
         return time;
     }
 
