@@ -22,8 +22,9 @@
         <serverType id="greengage"
                     name="Greengage"
                     class="org.jkiss.dbeaver.ext.greenplum.model.PostgreServerGreengage"
-                    logo="icons/greengage_logo.png"
-                    customURL="true" turnOffPreparedStatements="true"/>
+                    logo="icons/greengage_logo.svg"
+                    customURL="true"
+                    turnOffPreparedStatements="true"/>
     </extension>
 
     <extension point="org.jkiss.dbeaver.dataSourceProvider">
