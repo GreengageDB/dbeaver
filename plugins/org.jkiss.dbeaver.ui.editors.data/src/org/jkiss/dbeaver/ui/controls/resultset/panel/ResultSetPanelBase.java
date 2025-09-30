@@ -14,24 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jkiss.dbeaver.model.cli;
+package org.jkiss.dbeaver.ui.controls.resultset.panel;
 
-import org.jkiss.dbeaver.DBException;
+import org.eclipse.swt.widgets.Composite;
+import org.jkiss.code.NotNull;
+import org.jkiss.dbeaver.ui.controls.resultset.IResultSetPanel;
 
-public class CliException extends DBException {
-    private final short exitCode;
+public abstract class ResultSetPanelBase implements IResultSetPanel {
 
-    public CliException(String message, short exitCode) {
-        super(message);
-        this.exitCode = exitCode;
+    @Override
+    public boolean needsSeparator() {
+        return false;
     }
 
-    public CliException(String message, Throwable cause, short exitCode) {
-        super(message, cause);
-        this.exitCode = exitCode;
-    }
+    protected void createActionsToolbar(@NotNull Composite parent) {
 
-    public short getExitCode() {
-        return exitCode;
     }
 }
